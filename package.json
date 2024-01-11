@@ -1,0 +1,15 @@
+{
+  "name": "shark-card-game",
+  "version": "0.1.0",
+  "description": "Shark Card Game",
+  "main": "main.cpp",
+  "scripts": {
+    "build": "cmake -DCMAKE_BUILD_TYPE=Debug ninja -G Ninja -S . -B cmake-build-debug",
+    "run": "cmake-build-debug\\SharkCardGame.exe"
+  },
+  "author": "Nur Akmal Jalil",
+  "license": "MIT",
+  "libraries": {
+    "entt@3.12.2": "https://github.com/skypjack/entt/archive/refs/tags/v3.12.2.zip"
+  }
+}
