@@ -2,7 +2,7 @@
   "name": "shark-card-game",
   "version": "0.1.0",
   "description": "Shark Card Game",
-  "main": "main.cpp",
+  "main": "src/main.cpp",
   "scripts": {
     "build": "cmake -DCMAKE_BUILD_TYPE=Debug ninja -G Ninja -S . -B cmake-build-debug",
     "run": "cmake-build-debug\\SharkCardGame.exe"
