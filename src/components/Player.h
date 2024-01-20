@@ -14,23 +14,28 @@
 class Player {
 public:
     Player() = default;
+
     Player(std::string name, int score);
+
     ~Player() = default;
 
     void setName(std::string name);
+
     void setScore(int score);
 
     [[nodiscard]] std::string getName() const;
 
     [[nodiscard]] int getScore() const;
 
-    std::vector<std::shared_ptr<Card>> hand;
+    void addCard(std::unique_ptr<Card> card);
+
+    void showHand() const;
 
 private:
-    std::string mName = "Player";
-    int mScore = 0;
+    std::string name_ = "Player";
+    int score_ = 0;
+    std::vector<std::unique_ptr<Card> > hand_;
 };
-
 
 
 #endif //PLAYER_H

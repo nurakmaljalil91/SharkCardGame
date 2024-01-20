@@ -6,7 +6,6 @@
 #define CARD_H
 #include <string>
 
-
 class Card {
 public:
     Card(int value, std::string suit);
@@ -16,8 +15,8 @@ public:
     [[nodiscard]] std::string getName() const;
 
 private:
-    int mValue = 0;
-    std::string mSuit;
+    int value_ = 0;
+    std::string suit_;
 };
 
 

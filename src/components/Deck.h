@@ -16,18 +16,14 @@ public:
 
     ~Deck() = default;
 
-    void addCard(std::shared_ptr<Card> card);
-
-    [[nodiscard]] std::vector<std::shared_ptr<Card> > getCards();
-
     void initialize();
 
-    std::shared_ptr<Card> giveCard();
-
-private:
     void shuffle();
 
-    std::vector<std::shared_ptr<Card> > mCards;
+    std::unique_ptr<Card> drawCard();
+
+private:
+    std::vector<std::unique_ptr<Card> > cards_;
 };
 
 

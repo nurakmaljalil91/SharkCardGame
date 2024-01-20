@@ -4,17 +4,29 @@
 
 #include "Player.h"
 
-Player::Player(std::string name, const int score) : mName(std::move(name)), mScore(score) {
+#include <iostream>
+
+Player::Player(std::string name, const int score) : name_(std::move(name)), score_(score) {
 }
 
 void Player::setName(std::string name) {
-    mName = std::move(name);
+    name_ = std::move(name);
 }
 
 void Player::setScore(const int score) {
-    mScore = score;
+    score_ = score;
 }
 
-std::string Player::getName() const { return mName; }
+std::string Player::getName() const { return name_; }
 
-int Player::getScore() const { return mScore; }
+int Player::getScore() const { return score_; }
+
+void Player::addCard(std::unique_ptr<Card> card) {
+    hand_.push_back(std::move(card));
+}
+
+void Player::showHand() const {
+    for (const auto &card: hand_) {
+        std::cout << card->getName() << std::endl;
+    }
+}

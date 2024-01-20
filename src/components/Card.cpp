@@ -4,14 +4,14 @@
 
 #include "Card.h"
 
-Card::Card(const int value, std::string suit) : mValue(value), mSuit(std::move(suit)) {
+Card::Card(const int value, std::string suit) : value_(value), suit_(std::move(suit)) {
 }
 
 Card::~Card() = default;
 
 std::string Card::getName() const {
     std::string name;
-    switch (mValue) {
+    switch (value_) {
         case 1:
             name = "Ace";
             break;
@@ -25,10 +25,10 @@ std::string Card::getName() const {
             name = "King";
             break;
         default:
-            name = std::to_string(mValue);
+            name = std::to_string(value_);
             break;
     }
 
-    return name + " of " + mSuit;
+    return name + " of " + suit_;
 }
 
