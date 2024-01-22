@@ -14,6 +14,8 @@ public:
 
     [[nodiscard]] std::string getName() const;
 
+    [[nodiscard]] int getValue() const;
+
 private:
     int value_ = 0;
     std::string suit_;

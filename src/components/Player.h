@@ -31,6 +31,8 @@ public:
 
     void showHand() const;
 
+    int selectCard(int index);
+
 private:
     std::string name_ = "Player";
     int score_ = 0;

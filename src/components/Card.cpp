@@ -32,3 +32,7 @@ std::string Card::getName() const {
     return name + " of " + suit_;
 }
 
+int Card::getValue() const {
+    return value_;
+}
+

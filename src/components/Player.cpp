@@ -30,3 +30,11 @@ void Player::showHand() const {
         std::cout << card->getName() << std::endl;
     }
 }
+
+int Player::selectCard(int index) {
+    int score = hand_[index]->getValue();
+    std::cout << name_ << " selected " << hand_[index]->getName() << std::endl;
+    hand_.erase(hand_.begin() + index);
+
+    return score;
+}
