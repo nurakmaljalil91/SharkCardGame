@@ -1,0 +1,40 @@
+[package]
+_name = "sharck_card_game"
+version = "0.1.0"
+edition = "2024"
+
+# The authors of the project (optional)
+authors = ["Nur Akmal Jalil <nurakmaljalil91@gmail.com>"]
+
+# A short description of the project (optional)
+description = "A simple card game."
+
+# The license for the project (optional)
+license = "MIT OR Apache-2.0"
+
+# The URL for the project's repository (optional)
+repository = "https://github.com/nurakmaljalil91/SharkCardGame"
+
+# Keywords for the project (optional)
+keywords = ["card", "game", "project"]
+
+# Categories for the project (optional)
+categories = ["command-line-utilities"]
+
+[dependencies]
+# Add your dependencies here, for example:
+# serde = "1.0"
+# rand = "0.8"
+
+# Optional dependencies
+[dev-dependencies]
+# Add your development dependencies here, for example:
+# pretty_assertions = "0.7"
+
+[features]
+# Define optional features here
+# default = ["feature1"]
+
+[profile.release]
+# Customize release build settings
+opt-level = 3
