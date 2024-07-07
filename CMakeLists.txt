@@ -14,6 +14,12 @@ if (NOT TARGET spdlog)
     find_package(spdlog REQUIRED)
 endif ()
 
+# set sdl2 path
+set(SDL2_PATH vendors/SDL2)
+include_directories(${SDL2_PATH}/include)
+link_directories(${SDL2_PATH}/lib)
+file(COPY ${SDL2_PATH}/bin/SDL2.dll DESTINATION ${CMAKE_BINARY_DIR})
+
 add_executable(SharkCardGame src/main.cpp
         src/components/Player.cpp
         src/components/Player.h
@@ -23,4 +29,4 @@ add_executable(SharkCardGame src/main.cpp
         src/components/Deck.h
 )
 
-target_link_libraries(SharkCardGame PRIVATE spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
+target_link_libraries(SharkCardGame PRIVATE mingw32 SDL2main SDL2 spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
