@@ -27,6 +27,8 @@ add_executable(SharkCardGame src/main.cpp
         src/components/Card.h
         src/components/Deck.cpp
         src/components/Deck.h
+        src/utilities/Logger.cpp
+        src/utilities/Logger.h
 )
 
 target_link_libraries(SharkCardGame PRIVATE mingw32 SDL2main SDL2 spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)

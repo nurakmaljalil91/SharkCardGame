@@ -1,3 +1,17 @@
+/**
+ * @file main.cpp
+ * @brief Main file for the SDL2 application with logging using spdlog.
+ *
+ * This file contains the main function for an SDL2 application that sets up
+ * a window and logs events using the Logger class defined in Logger.h.
+ *
+ * The application initializes SDL2, creates a window, and enters a main loop
+ * where it handles events until the user requests to quit.
+ *
+ * @author Nur Akmal bin Jalil
+ * @date 2024-07-20
+ */
+
 #include <iostream>
 #include "entt/entt.hpp"
 #include "random"
@@ -5,38 +19,62 @@
 #include "components/Deck.h"
 #include "components/Player.h"
 #include "SDL2/SDL.h"
+#include "utilities/Logger.h"
 
 
 int main(int argc, char* argv[]) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+    // Initialize the logger
+    Logger::init();
+
+    LOG_INFO("Starting SDL2 application");
+
+    // Initialize SDL2
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
         return 1;
     }
+    LOG_INFO("SDL initialized successfully");
 
-    SDL_Window *win = SDL_CreateWindow("Hello SDL", 100, 100, 640, 480, SDL_WINDOW_SHOWN);
-    if (win == nullptr) {
-        std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+    // Create a window
+    SDL_Window *window = SDL_CreateWindow("SDL2 Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_SHOWN);
+    if (window == nullptr) {
+        LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
         SDL_Quit();
         return 1;
     }
+    LOG_INFO("Window created successfully");
 
-    SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (ren == nullptr) {
-        std::cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 1;
+    // Main loop flag
+    bool quit = false;
+
+    // Event handler
+    SDL_Event e;
+
+    // Main loop
+    while (!quit) {
+        // Handle events on queue
+        while (SDL_PollEvent(&e) != 0) {
+            // User requests quit
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+
+        // Clear screen
+        SDL_SetRenderDrawColor(SDL_GetRenderer(window), 0xFF, 0xFF, 0xFF, 0xFF);
+        SDL_RenderClear(SDL_GetRenderer(window));
+
+        // Update screen
+        SDL_RenderPresent(SDL_GetRenderer(window));
     }
 
-    SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
-    SDL_RenderClear(ren);
-    SDL_RenderPresent(ren);
+    // Destroy window
+    SDL_DestroyWindow(window);
+    LOG_INFO("Window destroyed");
 
-    SDL_Delay(2000);
-
-    SDL_DestroyRenderer(ren);
-    SDL_DestroyWindow(win);
+    // Quit SDL subsystems
     SDL_Quit();
+    LOG_INFO("SDL quit");
 
     return 0;
 }
