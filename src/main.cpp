@@ -20,62 +20,15 @@
 #include "components/Player.h"
 #include "SDL2/SDL.h"
 #include "utilities/Logger.h"
+#include "core/Application.h"
 
 
 int main(int argc, char* argv[]) {
-    // Initialize the logger
-    Logger::init();
-
-    LOG_INFO("Starting SDL2 application");
-
-    // Initialize SDL2
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
+    Application app;
+    if (!app.init()) {
         return 1;
     }
-    LOG_INFO("SDL initialized successfully");
-
-    // Create a window
-    SDL_Window *window = SDL_CreateWindow("SDL2 Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_SHOWN);
-    if (window == nullptr) {
-        LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-    LOG_INFO("Window created successfully");
-
-    // Main loop flag
-    bool quit = false;
-
-    // Event handler
-    SDL_Event e;
-
-    // Main loop
-    while (!quit) {
-        // Handle events on queue
-        while (SDL_PollEvent(&e) != 0) {
-            // User requests quit
-            if (e.type == SDL_QUIT) {
-                quit = true;
-            }
-        }
-
-        // Clear screen
-        SDL_SetRenderDrawColor(SDL_GetRenderer(window), 0xFF, 0xFF, 0xFF, 0xFF);
-        SDL_RenderClear(SDL_GetRenderer(window));
-
-        // Update screen
-        SDL_RenderPresent(SDL_GetRenderer(window));
-    }
-
-    // Destroy window
-    SDL_DestroyWindow(window);
-    LOG_INFO("Window destroyed");
-
-    // Quit SDL subsystems
-    SDL_Quit();
-    LOG_INFO("SDL quit");
-
+    app.run();
     return 0;
 }
 
