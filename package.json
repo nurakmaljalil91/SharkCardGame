@@ -9,7 +9,10 @@
   },
   "author": "Nur Akmal Jalil",
   "license": "MIT",
-  "libraries": {
-    "entt@3.12.2": "https://github.com/skypjack/entt/archive/refs/tags/v3.12.2.zip"
+  "dependencies": {
+    "SDL2": "https://github.com/libsdl-org/SDL.git@SDL2",
+    "spdlog": "https://github.com/gabime/spdlog.git",
+    "entt": "https://github.com/skypjack/entt.git",
+    "cbit2d": "https://github.com/nurakmaljalil91/Cbit2d.git"
   }
 }
