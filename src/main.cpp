@@ -14,14 +14,19 @@
 
 #include <iostream>
 #include "cbit2d/core/Application.h"
-#include "cbit2d/utilities/Logger.h"
+#include "scenes/CustomScene.h"
 
 
 int main(int argc, char* argv[]) {
-    Application app;
+    Application app("Shark Card Game", 800, 600);
     if (!app.init()) {
         return 1;
     }
+
+    auto customScene = std::make_shared<CustomScene>();
+
+    app.getSceneManager().addScene("CustomScene",customScene);
+
     app.run();
 
     return 0;

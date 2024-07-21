@@ -41,6 +41,8 @@ add_executable(SharkCardGame src/main.cpp
         src/components/Card.h
         src/components/Deck.cpp
         src/components/Deck.h
+        src/scenes/CustomScene.cpp
+        src/scenes/CustomScene.h
 )
 
 target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)
