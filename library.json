@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "SDL2": "https://github.com/libsdl-org/SDL.git@SDL2",
+    "SDL_Image": "https://github.com/libsdl-org/SDL_image.git@SDL2",
     "spdlog": "https://github.com/gabime/spdlog.git",
     "entt": "https://github.com/skypjack/entt.git",
     "cbit2d": "https://github.com/nurakmaljalil91/Cbit2d.git"

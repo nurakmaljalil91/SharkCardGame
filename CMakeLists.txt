@@ -34,6 +34,13 @@ file(COPY ${SDL2_PATH}/bin/SDL2.dll DESTINATION ${CMAKE_BINARY_DIR})
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS})
 
+# Set SDL2_image path
+set(SDL2_IMAGE_PATH vendors/SDL_Image)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${SDL2_IMAGE_PATH})
+include_directories(${SDL2_IMAGE_PATH}/include)
+link_directories(${SDL2_IMAGE_PATH}/lib)
+file(COPY ${SDL2_IMAGE_PATH}/bin/SDL2_image.dll DESTINATION ${CMAKE_BINARY_DIR})
+
 add_executable(SharkCardGame src/main.cpp
         src/components/Player.cpp
         src/components/Player.h
@@ -45,7 +52,7 @@ add_executable(SharkCardGame src/main.cpp
         src/scenes/CustomScene.h
 )
 
-target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)
+target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 SDL2_image spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)
 
 # Set linker flags for console application
 set_target_properties(SharkCardGame PROPERTIES

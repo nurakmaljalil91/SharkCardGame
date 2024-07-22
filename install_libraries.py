@@ -79,7 +79,7 @@ def main():
     check_if_cmake_installed()
 
     # Read the dependencies file from JSON file
-    with open('package.json', 'r') as file:
+    with open('library.json', 'r') as file:
         data = json.load(file)
 
     dependencies = data['dependencies']
