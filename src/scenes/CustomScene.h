@@ -12,12 +12,12 @@ public:
     CustomScene();
     ~CustomScene();
 
-    void init();
+    void setup(SDL_Renderer *renderer);
     void update();
-    void render();
-    void handleInput();
+    void handleInput(SDL_Event event);
     void cleanup();
-
+private:
+    entt::entity _image;
 };
 
 

@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
     auto customScene = std::make_shared<CustomScene>();
 
     app.getSceneManager().addScene("CustomScene",customScene);
+    app.getSceneManager().setCurrentScene("CustomScene");
 
     app.run();
 
