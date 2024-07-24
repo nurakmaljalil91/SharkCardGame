@@ -12,11 +12,9 @@
  * @date 2024-07-20
  */
 
-#include <iostream>
-#include "cbit2d/core/Application.h"
-#include "cbit2d/core/SceneManager.h"
-#include "scenes/CustomScene.h"
-
+#include <cbit2d/core/Application.h>
+#include <cbit2d/core/SceneManager.h>
+#include "scenes/PlayScene.h"
 
 int main(int argc, char* argv[]) {
     Application app("Shark Card Game", 800, 600);
@@ -24,7 +22,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SceneManager::getInstance().addScene("CustomScene",std::make_shared<CustomScene>());
+
+    SceneManager::getInstance().addScene("CustomScene",std::make_shared<PlayScene>());
     SceneManager::getInstance().setActiveScene("CustomScene");
 
     app.run();
