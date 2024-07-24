@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include "cbit2d/core/Application.h"
+#include "cbit2d/core/SceneManager.h"
 #include "scenes/CustomScene.h"
 
 
@@ -23,10 +24,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    auto customScene = std::make_shared<CustomScene>();
-
-    app.getSceneManager().addScene("CustomScene",customScene);
-    app.getSceneManager().setCurrentScene("CustomScene");
+    SceneManager::getInstance().addScene("CustomScene",std::make_shared<CustomScene>());
+    SceneManager::getInstance().setActiveScene("CustomScene");
 
     app.run();
 
