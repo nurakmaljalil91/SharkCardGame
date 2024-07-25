@@ -13,18 +13,18 @@
  */
 
 #include <cbit2d/core/Application.h>
-#include <cbit2d/core/SceneManager.h>
 #include "scenes/PlayScene.h"
 
 int main(int argc, char* argv[]) {
+
     Application app("Shark Card Game", 800, 600);
+
     if (!app.init()) {
         return 1;
     }
 
-
-    SceneManager::getInstance().addScene("CustomScene",std::make_shared<PlayScene>());
-    SceneManager::getInstance().setActiveScene("CustomScene");
+    app.getSceneManager().addScene("PlayScene", std::make_shared<PlayScene>());
+    app.getSceneManager().setActiveScene("PlayScene");
 
     app.run();
 
