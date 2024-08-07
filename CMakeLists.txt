@@ -55,6 +55,15 @@ include_directories(${SDL2_MIXER_PATH}/include)
 link_directories(${SDL2_MIXER_PATH}/lib)
 file(COPY ${SDL2_MIXER_PATH}/bin/SDL2_mixer.dll DESTINATION ${CMAKE_BINARY_DIR})
 
+# set GLM path
+set(GLM_PATH vendors/glm)
+include_directories(${GLM_PATH}/include)
+
+# set simdjson path
+set(SIMDJSON_PATH vendors/simdjson)
+include_directories(${SIMDJSON_PATH}/include)
+link_directories(${SIMDJSON_PATH}/lib)
+
 # Copy all files in the resources folder
 file(GLOB RESOURCES_FILES ${CMAKE_SOURCE_DIR}/resources/*)
 file(COPY ${RESOURCES_FILES} DESTINATION ${CMAKE_BINARY_DIR}/resources)
@@ -68,6 +77,8 @@ add_executable(SharkCardGame src/main.cpp
         src/components/Deck.h
         src/scenes/PlayScene.cpp
         src/scenes/PlayScene.h
+        src/scenes/MenuScene.cpp
+        src/scenes/MenuScene.h
 )
 
 target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 SDL2_image SDL2_ttf SDL2_mixer spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)

@@ -14,17 +14,19 @@
 
 #include <cbit2d/core/Application.h>
 #include "scenes/PlayScene.h"
+#include "scenes/MenuScene.h"
 
 int main(int argc, char* argv[]) {
 
-    Application app("Shark Card Game", 800, 600);
+    Application app("Shark Card Game", 800, 600, false);
 
     if (!app.init()) {
         return 1;
     }
 
     app.getSceneManager().addScene("PlayScene", std::make_shared<PlayScene>());
-    app.getSceneManager().setActiveScene("PlayScene");
+    app.getSceneManager().addScene("MenuScene", std::make_shared<MenuScene>());
+    app.getSceneManager().setActiveScene("MenuScene");
 
     app.run();
 

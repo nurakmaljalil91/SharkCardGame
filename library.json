@@ -16,6 +16,8 @@
     "SDL_mixer": "https://github.com/libsdl-org/SDL_mixer.git@SDL2",
     "spdlog": "https://github.com/gabime/spdlog.git",
     "entt": "https://github.com/skypjack/entt.git",
-    "cbit2d": "https://github.com/nurakmaljalil91/Cbit2d.git"
+    "cbit2d": "https://github.com/nurakmaljalil91/Cbit2d.git",
+    "glm": "https://github.com/g-truc/glm.git",
+    "simdjson": "https://github.com/simdjson/simdjson.git"
   }
 }

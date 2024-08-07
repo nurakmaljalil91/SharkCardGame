@@ -11,25 +11,23 @@
 
 #include "PlayScene.h"
 
-PlayScene::PlayScene() : Scene() {
-}
+PlayScene::PlayScene() :
+        _image(entt::null),
+        Scene() {}
 
 PlayScene::~PlayScene() = default;
 
 void PlayScene::setup() {
 //    Scene::setup();
     LOG_INFO("PlayScene setup");
-    _image = _registry.create();
-    _registry.emplace<TransformComponent>(_image, 100, 100, 224, 96);
-    _registry.emplace<SpriteComponent>(_image, "cardsSmall_tilemap_packed", 0, 0, 224, 96);
+    toggleDebug();
+    _image = _ecs.registry.create();
+    _ecs.registry.emplace<TransformComponent>(_image, 100, 100, 224, 96);
+    _ecs.registry.emplace<SpriteComponent>(_image, "cardsSmall_tilemap_packed", 0, 0, 224, 96);
 }
 
-void PlayScene::update() {
-    Scene::update();
-}
-
-void PlayScene::handleInput(SDL_Event event) {
-    Scene::handleInput(event);
+void PlayScene::update(float deltaTime, Input &input) {
+    Scene::update(deltaTime, input);
 }
 
 

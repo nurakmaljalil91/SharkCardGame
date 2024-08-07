@@ -23,9 +23,7 @@ public:
 
     void setup() override;
 
-    void update() override;
-
-    void handleInput(SDL_Event event) override;
+    void update(float deltaTime,Input &input) override;
 private:
     entt::entity _image;
 };
