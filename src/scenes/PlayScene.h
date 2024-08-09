@@ -13,6 +13,7 @@
 #define SHARKCARDGAME_PLAYSCENE_H
 
 #include <cbit2d/core/Scene.h>
+#include "../components/Components.h"
 
 class PlayScene : public Scene {
 
@@ -23,9 +24,12 @@ public:
 
     void setup() override;
 
-    void update(float deltaTime,Input &input) override;
+    void update(float deltaTime, Input &input) override;
+
 private:
     entt::entity _image;
+    int const _cardWidth = 42;
+    int const _cardHeight = 60;
 };
 
 

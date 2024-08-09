@@ -69,16 +69,11 @@ file(GLOB RESOURCES_FILES ${CMAKE_SOURCE_DIR}/resources/*)
 file(COPY ${RESOURCES_FILES} DESTINATION ${CMAKE_BINARY_DIR}/resources)
 
 add_executable(SharkCardGame src/main.cpp
-        src/components/Player.cpp
-        src/components/Player.h
-        src/components/Card.cpp
-        src/components/Card.h
-        src/components/Deck.cpp
-        src/components/Deck.h
         src/scenes/PlayScene.cpp
         src/scenes/PlayScene.h
         src/scenes/MenuScene.cpp
         src/scenes/MenuScene.h
+        src/components/Components.h
 )
 
 target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 SDL2_image SDL2_ttf SDL2_mixer spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)
