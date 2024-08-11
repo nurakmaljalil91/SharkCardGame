@@ -21,8 +21,8 @@ void PlayScene::setup() {
 //    toggleDebug();
 
     // calculate the initial position of the cards
-    _initialPosition.x = static_cast<float>(WINDOW_WIDTH - _cardWidth * 13) / 2;
-    _initialPosition.y = static_cast<float>(WINDOW_HEIGHT - _cardHeight * 4) / 2;
+    _initialPosition.x = static_cast<float>(GLOBAL_WINDOW_WIDTH - _cardWidth * 13) / 2;
+    _initialPosition.y = static_cast<float>(GLOBAL_WINDOW_HEIGHT - _cardHeight * 4) / 2;
 
     LOG_INFO("initial position: {0}, {1}", _initialPosition.x, _initialPosition.y);
 
@@ -88,15 +88,97 @@ void PlayScene::setup() {
     std::shuffle(cards.begin(), cards.end(), g);
 
     // Create cards using the helper function
-    for (size_t i = 0; i < cards.size(); ++i) {
-        float posX = _initialPosition.x + static_cast<float>(_cardWidth * (i % 13));
-        float posY = _initialPosition.y + static_cast<float>(_cardHeight * (i / 13));
-        createCard(cards[i], posX, posY);
+    for (int i = 0; i < cards.size(); ++i) {
+        float positionX = _initialPosition.x + static_cast<float>(_cardWidth * (i % 13));
+        float positionY = _initialPosition.y + static_cast<float>(_cardHeight * (i / 13));
+        createCard(cards[i], positionX, positionY);
     }
+
+    // create a player
+    _player = _ecs.registry.create();
+    _ecs.registry.emplace<PlayerComponent>(_player, "Player 1");
+    _ecs.registry.emplace<TransformComponent>(_player, 100, 100, 42, 60);
+
+    _playerHand = _ecs.registry.create();
+    _ecs.registry.emplace<TransformComponent>(_playerHand, 325, 513, _cardWidth + 10, _cardHeight + 10);
+    _ecs.registry.emplace<SpriteComponent>(_playerHand, "button_square_flat", 0, 0, 128, 128);
+
+    _playerHead = _ecs.registry.create();
+    _ecs.registry.emplace<TransformComponent>(_playerHead, 408, 513, _cardWidth + 10, _cardHeight + 10);
+    _ecs.registry.emplace<SpriteComponent>(_playerHead, "button_square_flat", 0, 0, 128, 128);
+
+    _npcHand = _ecs.registry.create();
+    _ecs.registry.emplace<TransformComponent>(_npcHand, 325, 63, _cardWidth + 10, _cardHeight + 10);
+    _ecs.registry.emplace<SpriteComponent>(_npcHand, "button_square_flat", 0, 0, 128, 128);
+
+    _npcHead = _ecs.registry.create();
+    _ecs.registry.emplace<TransformComponent>(_npcHead, 408, 63, _cardWidth + _margin, _cardHeight + _margin);
+    _ecs.registry.emplace<SpriteComponent>(_npcHead, "button_square_flat", 0, 0, 128, 128);
 }
 
 void PlayScene::update(float deltaTime, Input &input) {
     Scene::update(deltaTime, input);
+    int mouseX, mouseY;
+    input.getMousePosition(mouseX, mouseY);
+    if (input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
+        LOG_INFO("mouse left button pressed at: {0}, {1}", mouseX, mouseY);
+    }
+    // snapping card to hand and head position
+    auto draggableView = _ecs.registry.view<TransformComponent, MultipleSpriteComponent>();
+    auto &targetHandTransform = _ecs.registry.get<TransformComponent>(_playerHand);
+    auto &targetHeadTransform = _ecs.registry.get<TransformComponent>(_playerHead);
+    auto &targetNpcHandTransform = _ecs.registry.get<TransformComponent>(_npcHand);
+    auto &targetNpcHeadTransform = _ecs.registry.get<TransformComponent>(_npcHead);
+
+    for (auto entity: draggableView) {
+        auto &transform = draggableView.get<TransformComponent>(entity);
+        auto &multipleSpriteComponent = draggableView.get<MultipleSpriteComponent>(entity);
+
+        if (std::abs(transform.position.x - targetHandTransform.position.x) < static_cast<float>(_cardWidth) &&
+            std::abs(transform.position.y - targetHandTransform.position.y) < static_cast<float>(_cardHeight)) {
+            transform.position.x = targetHandTransform.position.x + 5;
+            transform.position.y = targetHandTransform.position.y + 5;
+            if (transform.position.x == targetHandTransform.position.x + 5 &&
+                transform.position.y == targetHandTransform.position.y + 5) {
+                multipleSpriteComponent.currentSprite = "front";
+                multipleSpriteComponent.layer += 1;
+                LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
+            }
+        }
+        if (std::abs(transform.position.x - targetHeadTransform.position.x) < static_cast<float>(_cardWidth) &&
+            std::abs(transform.position.y - targetHeadTransform.position.y) < static_cast<float>(_cardHeight)) {
+            transform.position.x = targetHeadTransform.position.x + 5;
+            transform.position.y = targetHeadTransform.position.y + 5;
+            if (transform.position.x == targetHeadTransform.position.x + 5 &&
+                transform.position.y == targetHeadTransform.position.y + 5) {
+                multipleSpriteComponent.currentSprite = "back";
+                multipleSpriteComponent.layer += 1;
+                LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
+            }
+        }
+        if (std::abs(transform.position.x - targetNpcHandTransform.position.x) < static_cast<float>(_cardWidth) &&
+            std::abs(transform.position.y - targetNpcHandTransform.position.y) < static_cast<float>(_cardHeight)) {
+            transform.position.x = targetNpcHandTransform.position.x + 5;
+            transform.position.y = targetNpcHandTransform.position.y + 5;
+            if (transform.position.x == targetHandTransform.position.x + 5 &&
+                transform.position.y == targetHandTransform.position.y + 5) {
+                multipleSpriteComponent.currentSprite = "front";
+                multipleSpriteComponent.layer += 1;
+                LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
+            }
+        }
+        if (std::abs(transform.position.x - targetNpcHeadTransform.position.x) < static_cast<float>(_cardWidth) &&
+            std::abs(transform.position.y - targetNpcHeadTransform.position.y) < static_cast<float>(_cardHeight)) {
+            transform.position.x = targetNpcHeadTransform.position.x + 5;
+            transform.position.y = targetNpcHeadTransform.position.y + 5;
+            if (transform.position.x == targetHeadTransform.position.x + 5 &&
+                transform.position.y == targetHeadTransform.position.y + 5) {
+                multipleSpriteComponent.currentSprite = "back";
+                multipleSpriteComponent.layer += 1;
+                LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
+            }
+        }
+    }
 
 //    auto view = _ecs.registry.view<MultipleSpriteComponent, ClickableComponent>();
 //
@@ -129,7 +211,7 @@ entt::entity PlayScene::createCard(const CardInfo &cardInfo, float positionX, fl
     cardSprites.emplace("front", cardFrontSprite);
     cardSprites.emplace("back", cardBackSprite);
 
-    _ecs.registry.emplace<MultipleSpriteComponent>(card, cardSprites, "front");
+    _ecs.registry.emplace<MultipleSpriteComponent>(card, cardSprites, "back", 1);
     _ecs.registry.emplace<DraggableComponent>(card);
     _ecs.registry.emplace<ClickableComponent>(card);
 

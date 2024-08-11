@@ -21,9 +21,17 @@ struct CardComponent {
 };
 
 struct PlayerComponent {
-    int score;
     std::string name;
+    int money = 1000;
     std::vector<CardComponent> hand;
+    std::vector<CardComponent> head;
+};
+
+struct NonPlayableCharacterComponent {
+    std::string name;
+    int money = 1000;
+    std::vector<CardComponent> hand;
+    std::vector<CardComponent> head;
 };
 
 

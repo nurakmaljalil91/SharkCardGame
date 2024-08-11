@@ -13,8 +13,8 @@
 
 #include <string>
 
-int const WINDOW_WIDTH = 800;
-int const WINDOW_HEIGHT = 600;
-std::string const WINDOW_TITLE = "Shark Card Game";
+int const GLOBAL_WINDOW_WIDTH = 800;
+int const GLOBAL_WINDOW_HEIGHT = 600;
+std::string const GLOBAL_GAME_TITLE = "Shark Card Game";
 
 #endif //SHARKCARDGAME_GLOBAL_H

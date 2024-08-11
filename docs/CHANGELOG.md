@@ -1,11 +1,11 @@
 # CHANGELOG
 
 ## [Unreleased]
-
 ### 2024-08-11
 
 - Add global variables
-- refactor card creations
+- Refactor card creations
+- Add drag card to hand and head
 
 ### 2024-08-10
 

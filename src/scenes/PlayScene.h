@@ -42,7 +42,19 @@ public:
 private:
     int const _cardWidth = 42;
     int const _cardHeight = 60;
+    int const _margin = 10;
     glm::vec2 _initialPosition = {100, 100};
+
+    // game logic
+    int const _totalRounds = 3;
+    int _currentRound = 1;
+
+    entt::entity _player;
+    entt::entity _playerHand;
+    entt::entity _playerHead;
+    entt::entity _npc;
+    entt::entity _npcHand;
+    entt::entity _npcHead;
 
     entt::entity createCard(const CardInfo &cardInfo, float positionX, float positionY);
 };

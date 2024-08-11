@@ -19,7 +19,7 @@
 
 int main(int argc, char *argv[]) {
 
-    Application app("Shark Card Game", WINDOW_WIDTH, WINDOW_HEIGHT, false);
+    Application app("Shark Card Game", GLOBAL_WINDOW_WIDTH, GLOBAL_WINDOW_HEIGHT, false);
 
     if (!app.init()) {
         return 1;
