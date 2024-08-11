@@ -13,12 +13,13 @@
  */
 
 #include <cbit2d/core/Application.h>
+#include "Global.h"
 #include "scenes/PlayScene.h"
 #include "scenes/MenuScene.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
 
-    Application app("Shark Card Game", 800, 600, false);
+    Application app("Shark Card Game", WINDOW_WIDTH, WINDOW_HEIGHT, false);
 
     if (!app.init()) {
         return 1;

@@ -13,7 +13,20 @@
 #define SHARKCARDGAME_PLAYSCENE_H
 
 #include <cbit2d/core/Scene.h>
+#include <glm/glm.hpp>
+#include <algorithm> // For std::shuffle
+#include <random>    // For std::random_device, std::mt19937
 #include "../components/Components.h"
+#include "../Global.h"
+
+struct CardInfo {
+    std::string name;
+    int value;
+    int spriteX;
+    int spriteY;
+    float positionX;
+    float positionY;
+};
 
 class PlayScene : public Scene {
 
@@ -27,9 +40,11 @@ public:
     void update(float deltaTime, Input &input) override;
 
 private:
-    entt::entity _image;
     int const _cardWidth = 42;
     int const _cardHeight = 60;
+    glm::vec2 _initialPosition = {100, 100};
+
+    entt::entity createCard(const CardInfo &cardInfo, float positionX, float positionY);
 };
 
 
