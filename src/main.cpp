@@ -12,7 +12,7 @@
  * @date 2024-07-20
  */
 
-#include <cbit2d/core/Application.h>
+#include <cbit2d/Cbit.h>
 #include "Global.h"
 #include "scenes/PlayScene.h"
 #include "scenes/MenuScene.h"
@@ -20,6 +20,9 @@
 int main(int argc, char *argv[]) {
 
     Application app("Shark Card Game", GLOBAL_WINDOW_WIDTH, GLOBAL_WINDOW_HEIGHT, false);
+
+//    app.showEditor();
+    app.showFps();
 
     if (!app.init()) {
         return 1;

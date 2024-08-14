@@ -64,6 +64,19 @@ set(SIMDJSON_PATH vendors/simdjson)
 include_directories(${SIMDJSON_PATH}/include)
 link_directories(${SIMDJSON_PATH}/lib)
 
+# set imgui path
+set(IMGUI_PATH vendors/imgui)
+include_directories(${IMGUI_PATH})
+set(IMGUI_FILES
+        ${IMGUI_PATH}/imgui.cpp
+        ${IMGUI_PATH}/imgui_demo.cpp
+        ${IMGUI_PATH}/imgui_draw.cpp
+        ${IMGUI_PATH}/imgui_tables.cpp
+        ${IMGUI_PATH}/imgui_widgets.cpp
+        ${IMGUI_PATH}/backends/imgui_impl_sdl2.cpp
+        ${IMGUI_PATH}/backends/imgui_impl_sdlrenderer2.cpp
+)
+
 # Copy all files in the resources folder
 file(GLOB RESOURCES_FILES ${CMAKE_SOURCE_DIR}/resources/*)
 file(COPY ${RESOURCES_FILES} DESTINATION ${CMAKE_BINARY_DIR}/resources)
@@ -74,8 +87,18 @@ add_executable(SharkCardGame src/main.cpp
         src/scenes/MenuScene.cpp
         src/scenes/MenuScene.h
         src/components/Components.h
-        src/components/Global.h
+        src/Global.h
 )
+
+# Add the ENABLE_EDITOR definition for debug builds
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DENABLE_EDITOR)
+endif ()
+
+# Add ImGui files conditionally
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_sources(SharkCardGame PRIVATE ${IMGUI_FILES})
+endif ()
 
 target_link_libraries(SharkCardGame PRIVATE mingw32 Cbit2d SDL2::SDL2main SDL2::SDL2 SDL2_image SDL2_ttf SDL2_mixer spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32> pthread)
 

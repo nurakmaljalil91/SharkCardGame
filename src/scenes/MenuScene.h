@@ -12,7 +12,7 @@
 #ifndef SHARKCARDGAME_MENUSCENE_H
 #define SHARKCARDGAME_MENUSCENE_H
 
-#include <cbit2d/core/Scene.h>
+#include <cbit2d/Cbit.h>
 
 class MenuScene: public Scene {
 public:

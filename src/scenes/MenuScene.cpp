@@ -21,15 +21,15 @@ void MenuScene::setup() {
     setBackgroundColour(Color{55, 138, 249, 255});
 //    playBGM("easy-cheesy-bgm");
 
-    auto _titleText = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_titleText, 356, 194, 100, 50);
-    _ecs.registry.emplace<TextComponent>(_titleText, "Shark Card Game", "Kenney_Future", 32, 255, 255, 255, 255);
+    auto _titleText = _ecs.createGameObject("titleText");
+    _titleText.addComponent<TransformComponent>(356, 194, 100, 50);
+    _titleText.addComponent<TextComponent>("Shark Card Game", "Kenney_Future", 32, 255, 255, 255, 255);
 
-    auto _playButton = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_playButton, 339, 258, 150, 50);
-    _ecs.registry.emplace<TextComponent>(_playButton, "Play", "Kenney_Future", 32, Color{255, 255, 255, 255});
-    _ecs.registry.emplace<SpriteComponent>(_playButton, "button_rectangle_depth_flat", 0, 0, 384, 128);
-    _ecs.registry.emplace<ButtonComponent>(_playButton, [this]() {
+    auto _playButton = _ecs.createGameObject("playButton");
+    _playButton.addComponent<TransformComponent>(339, 258, 150, 50);
+    _playButton.addComponent<TextComponent>("Play", "Kenney_Future", 32, Color{255, 255, 255, 255});
+    _playButton.addComponent<SpriteComponent>("button_rectangle_depth_flat", 0, 0, 384, 128);
+    _playButton.addComponent<ButtonComponent>([this]() {
         LOG_INFO("Changing scene to PlayScene");
         playSFX("click-a");
         changeScene("PlayScene");

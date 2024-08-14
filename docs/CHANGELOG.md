@@ -1,6 +1,11 @@
 # CHANGELOG
 
 ## [Unreleased]
+
+### 2024-08-13
+
+- Refactor entity component system
+
 ### 2024-08-11
 
 - Add global variables

@@ -12,7 +12,7 @@
 #ifndef SHARKCARDGAME_PLAYSCENE_H
 #define SHARKCARDGAME_PLAYSCENE_H
 
-#include <cbit2d/core/Scene.h>
+#include <cbit2d/Cbit.h>
 #include <glm/glm.hpp>
 #include <algorithm> // For std::shuffle
 #include <random>    // For std::random_device, std::mt19937
@@ -49,14 +49,14 @@ private:
     int const _totalRounds = 3;
     int _currentRound = 1;
 
-    entt::entity _player;
-    entt::entity _playerHand;
-    entt::entity _playerHead;
-    entt::entity _npc;
-    entt::entity _npcHand;
-    entt::entity _npcHead;
+    GameObject _player;
+    GameObject _playerHand;
+    GameObject _playerHead;
+    GameObject _npc;
+    GameObject _npcHand;
+    GameObject _npcHead;
 
-    entt::entity createCard(const CardInfo &cardInfo, float positionX, float positionY);
+    GameObject createCard(const CardInfo &cardInfo, float positionX, float positionY);
 };
 
 

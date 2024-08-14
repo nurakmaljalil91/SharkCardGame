@@ -95,25 +95,25 @@ void PlayScene::setup() {
     }
 
     // create a player
-    _player = _ecs.registry.create();
-    _ecs.registry.emplace<PlayerComponent>(_player, "Player 1");
-    _ecs.registry.emplace<TransformComponent>(_player, 100, 100, 42, 60);
+    _player = _ecs.createGameObject("player");
+    _player.addComponent<PlayerComponent>("Player 1");
+    _player.addComponent<TransformComponent>(100, 100, 42, 60);
 
-    _playerHand = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_playerHand, 325, 513, _cardWidth + 10, _cardHeight + 10);
-    _ecs.registry.emplace<SpriteComponent>(_playerHand, "button_square_flat", 0, 0, 128, 128);
+    _playerHand = _ecs.createGameObject("playerHand");
+    _playerHand.addComponent<TransformComponent>(325, 513, _cardWidth + 10, _cardHeight + 10);
+    _playerHand.addComponent<SpriteComponent>("button_square_flat", 0, 0, 128, 128);
 
-    _playerHead = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_playerHead, 408, 513, _cardWidth + 10, _cardHeight + 10);
-    _ecs.registry.emplace<SpriteComponent>(_playerHead, "button_square_flat", 0, 0, 128, 128);
+    _playerHead = _ecs.createGameObject("playerHead");
+    _playerHead.addComponent<TransformComponent>(408, 513, _cardWidth + 10, _cardHeight + 10);
+    _playerHead.addComponent<SpriteComponent>("button_square_flat", 0, 0, 128, 128);
 
-    _npcHand = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_npcHand, 325, 63, _cardWidth + 10, _cardHeight + 10);
-    _ecs.registry.emplace<SpriteComponent>(_npcHand, "button_square_flat", 0, 0, 128, 128);
+    _npcHand = _ecs.createGameObject("npcHand");
+    _npcHand.addComponent<TransformComponent>(325, 63, _cardWidth + 10, _cardHeight + 10);
+    _npcHand.addComponent<SpriteComponent>("button_square_flat", 0, 0, 128, 128);
 
-    _npcHead = _ecs.registry.create();
-    _ecs.registry.emplace<TransformComponent>(_npcHead, 408, 63, _cardWidth + _margin, _cardHeight + _margin);
-    _ecs.registry.emplace<SpriteComponent>(_npcHead, "button_square_flat", 0, 0, 128, 128);
+    _npcHead = _ecs.createGameObject("npcHead");
+    _npcHead.addComponent<TransformComponent>(408, 63, _cardWidth + _margin, _cardHeight + _margin);
+    _npcHead.addComponent<SpriteComponent>("button_square_flat", 0, 0, 128, 128);
 }
 
 void PlayScene::update(float deltaTime, Input &input) {
@@ -124,11 +124,11 @@ void PlayScene::update(float deltaTime, Input &input) {
         LOG_INFO("mouse left button pressed at: {0}, {1}", mouseX, mouseY);
     }
     // snapping card to hand and head position
-    auto draggableView = _ecs.registry.view<TransformComponent, MultipleSpriteComponent>();
-    auto &targetHandTransform = _ecs.registry.get<TransformComponent>(_playerHand);
-    auto &targetHeadTransform = _ecs.registry.get<TransformComponent>(_playerHead);
-    auto &targetNpcHandTransform = _ecs.registry.get<TransformComponent>(_npcHand);
-    auto &targetNpcHeadTransform = _ecs.registry.get<TransformComponent>(_npcHead);
+    auto draggableView = _ecs.getAllEntitiesWith<TransformComponent, MultipleSpriteComponent>();
+    auto &targetHandTransform = _playerHand.getComponent<TransformComponent>();
+    auto &targetHeadTransform = _playerHead.getComponent<TransformComponent>();
+    auto &targetNpcHandTransform = _npcHand.getComponent<TransformComponent>();
+    auto &targetNpcHeadTransform = _npcHead.getComponent<TransformComponent>();
 
     for (auto entity: draggableView) {
         auto &transform = draggableView.get<TransformComponent>(entity);
@@ -141,7 +141,7 @@ void PlayScene::update(float deltaTime, Input &input) {
             if (transform.position.x == targetHandTransform.position.x + 5 &&
                 transform.position.y == targetHandTransform.position.y + 5) {
                 multipleSpriteComponent.currentSprite = "front";
-                multipleSpriteComponent.layer += 1;
+//                multipleSpriteComponent.layer += 1;
                 LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
             }
         }
@@ -152,7 +152,7 @@ void PlayScene::update(float deltaTime, Input &input) {
             if (transform.position.x == targetHeadTransform.position.x + 5 &&
                 transform.position.y == targetHeadTransform.position.y + 5) {
                 multipleSpriteComponent.currentSprite = "back";
-                multipleSpriteComponent.layer += 1;
+//                multipleSpriteComponent.layer += 1;
                 LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
             }
         }
@@ -163,7 +163,7 @@ void PlayScene::update(float deltaTime, Input &input) {
             if (transform.position.x == targetHandTransform.position.x + 5 &&
                 transform.position.y == targetHandTransform.position.y + 5) {
                 multipleSpriteComponent.currentSprite = "front";
-                multipleSpriteComponent.layer += 1;
+//                multipleSpriteComponent.layer += 1;
                 LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
             }
         }
@@ -174,7 +174,7 @@ void PlayScene::update(float deltaTime, Input &input) {
             if (transform.position.x == targetHeadTransform.position.x + 5 &&
                 transform.position.y == targetHeadTransform.position.y + 5) {
                 multipleSpriteComponent.currentSprite = "back";
-                multipleSpriteComponent.layer += 1;
+//                multipleSpriteComponent.layer += 1;
                 LOG_INFO("layer: {0}", multipleSpriteComponent.layer);
             }
         }
@@ -198,10 +198,10 @@ void PlayScene::update(float deltaTime, Input &input) {
 
 
 // Helper function to create a card entity
-entt::entity PlayScene::createCard(const CardInfo &cardInfo, float positionX, float positionY) {
-    auto card = _ecs.registry.create();
-    _ecs.registry.emplace<CardComponent>(card, cardInfo.name, cardInfo.value);
-    _ecs.registry.emplace<TransformComponent>(card, positionX, positionY, _cardWidth, _cardHeight);
+GameObject PlayScene::createCard(const CardInfo &cardInfo, float positionX, float positionY) {
+    auto card = _ecs.createGameObject(cardInfo.name);
+    card.addComponent<CardComponent>(cardInfo.name, cardInfo.value);
+    card.addComponent<TransformComponent>(positionX, positionY, _cardWidth, _cardHeight);
 
     SpriteComponent cardFrontSprite("cardsLarge_tilemap", cardInfo.spriteX, cardInfo.spriteY, _cardWidth,
                                     _cardHeight);
@@ -211,9 +211,9 @@ entt::entity PlayScene::createCard(const CardInfo &cardInfo, float positionX, fl
     cardSprites.emplace("front", cardFrontSprite);
     cardSprites.emplace("back", cardBackSprite);
 
-    _ecs.registry.emplace<MultipleSpriteComponent>(card, cardSprites, "back", 1);
-    _ecs.registry.emplace<DraggableComponent>(card);
-    _ecs.registry.emplace<ClickableComponent>(card);
+    card.addComponent<MultipleSpriteComponent>(cardSprites, "back", 1);
+    card.addComponent<DraggableComponent>();
+    card.addComponent<ClickableComponent>();
 
     return card;
 }
