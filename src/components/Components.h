@@ -1,9 +1,9 @@
 /**
- * @file GameComponent.h
- * @brief Header file for the GameComponent class.
+ * @file components.h
+ * @brief Header file for SharkCardGame-specific ECS components.
  *
- * This file contains the definition of the GameComponent class which is responsible for managing the game components in the game.
- * The GameComponent class is responsible for setting up the game components, updating the game components, and handling input for the game components.
+ * This file contains the game-specific components used by SharkCardGame while
+ * it is integrated with the current Cbit2D engine API.
  *
  * @author Nur Akmal bin Jalil
  * @date 2024-08-09
@@ -12,12 +12,15 @@
 #ifndef SHARKCARDGAME_COMPONENTS_H
 #define SHARKCARDGAME_COMPONENTS_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 struct CardComponent {
     std::string name;
     int value;
+    bool faceUp = false;
+    std::uint64_t snappedSlotId = 0;
 };
 
 struct PlayerComponent {
@@ -34,5 +37,15 @@ struct NonPlayableCharacterComponent {
     std::vector<CardComponent> head;
 };
 
+enum class SlotKind {
+    PlayerHand,
+    PlayerHead,
+    NonPlayableCharacterHand,
+    NonPlayableCharacterHead
+};
+
+struct SlotComponent {
+    SlotKind kind = SlotKind::PlayerHand;
+};
 
 #endif //SHARKCARDGAME_COMPONENTS_H

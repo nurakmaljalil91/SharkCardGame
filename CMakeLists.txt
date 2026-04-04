@@ -17,11 +17,18 @@ add_subdirectory(../Cbit2d ${CMAKE_BINARY_DIR}/Cbit2d-build)
 file(GLOB RESOURCES_FILES ${CMAKE_SOURCE_DIR}/resources/*)
 file(COPY ${RESOURCES_FILES} DESTINATION ${CMAKE_BINARY_DIR}/resources)
 
-add_executable(SharkCardGame src/main.cpp)
+add_executable(
+    SharkCardGame
+    src/main.cpp
+    src/scenes/menu_scene.cpp
+    src/scenes/play_scene.cpp
+)
 
 target_link_libraries(SharkCardGame PRIVATE cbit2d::cbit2d)
 
 if(MINGW)
+    target_compile_options(SharkCardGame PRIVATE -Wa,-mbig-obj)
+
     get_filename_component(_compiler_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
     set(_mingw_runtime_dlls
         "${_compiler_bin_dir}/libstdc++-6.dll"

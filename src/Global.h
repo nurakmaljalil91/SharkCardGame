@@ -1,5 +1,5 @@
 /**
- * @file Global.h
+ * @file global.h
  * @brief Global header file for the project.
  *
  * This file contains the global definitions for the project.
