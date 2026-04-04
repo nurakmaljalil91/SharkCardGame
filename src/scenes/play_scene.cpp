@@ -10,11 +10,9 @@
 #include "play_scene.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <random>
+#include <sstream>
 #include <utility>
-#include <vector>
 
 #include <entt/entity/registry.hpp>
 
@@ -37,68 +35,6 @@ constexpr const char* kCardTexturePath = "resources/images/cardsLarge_tilemap.pn
 constexpr const char* kSquareSlotTexturePath = "resources/images/button_square_flat.png";
 
 /**
- * @brief Returns the full deck definition used by the scene.
- * @return Array of card face metadata in deck order.
- */
-std::array<CardInfo, 52> buildDeck()
-{
-    return {{
-        {"Ace of Heart", 1, {0.0F, 0.0F}},
-        {"Two of Heart", 2, {42.0F, 0.0F}},
-        {"Three of Heart", 3, {84.0F, 0.0F}},
-        {"Four of Heart", 4, {126.0F, 0.0F}},
-        {"Five of Heart", 5, {168.0F, 0.0F}},
-        {"Six of Heart", 6, {210.0F, 0.0F}},
-        {"Seven of Heart", 7, {252.0F, 0.0F}},
-        {"Eight of Heart", 8, {294.0F, 0.0F}},
-        {"Nine of Heart", 9, {336.0F, 0.0F}},
-        {"Ten of Heart", 10, {378.0F, 0.0F}},
-        {"Jack of Heart", 11, {420.0F, 0.0F}},
-        {"Queen of Heart", 12, {462.0F, 0.0F}},
-        {"King of Heart", 13, {504.0F, 0.0F}},
-        {"Ace of Diamond", 1, {0.0F, 60.0F}},
-        {"Two of Diamond", 2, {42.0F, 60.0F}},
-        {"Three of Diamond", 3, {84.0F, 60.0F}},
-        {"Four of Diamond", 4, {126.0F, 60.0F}},
-        {"Five of Diamond", 5, {168.0F, 60.0F}},
-        {"Six of Diamond", 6, {210.0F, 60.0F}},
-        {"Seven of Diamond", 7, {252.0F, 60.0F}},
-        {"Eight of Diamond", 8, {294.0F, 60.0F}},
-        {"Nine of Diamond", 9, {336.0F, 60.0F}},
-        {"Ten of Diamond", 10, {378.0F, 60.0F}},
-        {"Jack of Diamond", 11, {420.0F, 60.0F}},
-        {"Queen of Diamond", 12, {462.0F, 60.0F}},
-        {"King of Diamond", 13, {504.0F, 60.0F}},
-        {"Ace of Club", 1, {0.0F, 120.0F}},
-        {"Two of Club", 2, {42.0F, 120.0F}},
-        {"Three of Club", 3, {84.0F, 120.0F}},
-        {"Four of Club", 4, {126.0F, 120.0F}},
-        {"Five of Club", 5, {168.0F, 120.0F}},
-        {"Six of Club", 6, {210.0F, 120.0F}},
-        {"Seven of Club", 7, {252.0F, 120.0F}},
-        {"Eight of Club", 8, {294.0F, 120.0F}},
-        {"Nine of Club", 9, {336.0F, 120.0F}},
-        {"Ten of Club", 10, {378.0F, 120.0F}},
-        {"Jack of Club", 11, {420.0F, 120.0F}},
-        {"Queen of Club", 12, {462.0F, 120.0F}},
-        {"King of Club", 13, {504.0F, 120.0F}},
-        {"Ace of Spade", 1, {0.0F, 180.0F}},
-        {"Two of Spade", 2, {42.0F, 180.0F}},
-        {"Three of Spade", 3, {84.0F, 180.0F}},
-        {"Four of Spade", 4, {126.0F, 180.0F}},
-        {"Five of Spade", 5, {168.0F, 180.0F}},
-        {"Six of Spade", 6, {210.0F, 180.0F}},
-        {"Seven of Spade", 7, {252.0F, 180.0F}},
-        {"Eight of Spade", 8, {294.0F, 180.0F}},
-        {"Nine of Spade", 9, {336.0F, 180.0F}},
-        {"Ten of Spade", 10, {378.0F, 180.0F}},
-        {"Jack of Spade", 11, {420.0F, 180.0F}},
-        {"Queen of Spade", 12, {462.0F, 180.0F}},
-        {"King of Spade", 13, {504.0F, 180.0F}}
-    }};
-}
-
-/**
  * @brief Returns whether a slot should display cards face up.
  * @param slotKind Logical slot role.
  * @return `true` when snapped cards should show their front face.
@@ -115,7 +51,8 @@ bool shouldShowFrontFace(const SlotKind slotKind)
  * @param onReturnToMenu Callback invoked when the menu button is pressed.
  */
 PlayScene::PlayScene(std::function<void()> onReturnToMenu)
-    : _onReturnToMenu(std::move(onReturnToMenu))
+    : _onReturnToMenu(std::move(onReturnToMenu)),
+      _matchState(gameplay::createInitialMatchState(2, 0))
 {
 }
 
@@ -162,8 +99,10 @@ void PlayScene::initialize()
     menuButtonText.fontSize = 20.0F;
     menuButtonText.color = {255, 255, 255, 255};
 
+    createMatchHud();
     createBoardSlots();
     createDeck();
+    refreshMatchHud();
 
     world.addSystem([](cbit::ecs::EntityComponentSystem& ecs) {
         if (!cbit2d::core::Input::isMouseButtonReleased(cbit2d::core::MouseButton::Left)) {
@@ -212,7 +151,7 @@ void PlayScene::initialize()
             cardTransform.position = slotTransform.position;
             card.faceUp = shouldShowFrontFace(slot.kind);
             card.snappedSlotId = slotId.id;
-            cardSprite.sourcePosition = card.faceUp ? PlayScene::getCardFrontSourcePosition(card) : kCardBackSourcePosition;
+            cardSprite.sourcePosition = card.faceUp ? card.frontSourcePosition : kCardBackSourcePosition;
         }
     });
 
@@ -233,7 +172,7 @@ void PlayScene::initialize()
 
             card.snappedSlotId = 0;
             card.faceUp = true;
-            sprite.sourcePosition = getCardFrontSourcePosition(card);
+            sprite.sourcePosition = card.frontSourcePosition;
             sprite.renderOrder = 10;
             transform.rotation = std::sin(_deltaTimeSeconds * 8.0F) * 2.0F;
         }
@@ -262,6 +201,7 @@ void PlayScene::initialize()
 void PlayScene::update(float deltaTimeSeconds)
 {
     _deltaTimeSeconds = deltaTimeSeconds;
+    refreshMatchHud();
     world.update(deltaTimeSeconds);
 }
 
@@ -280,7 +220,7 @@ void PlayScene::createBoardSlots()
     npcLabelTransform.position = {500.0F, 125.0F};
 
     auto& npcLabelText = npcLabel.addComponent<cbit::ecs::TextComponent>();
-    npcLabelText.content = "Opponent";
+    npcLabelText.content = _matchState.players[1].displayName;
     npcLabelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
     npcLabelText.fontSize = 20.0F;
     npcLabelText.color = {255, 255, 255, 255};
@@ -290,7 +230,7 @@ void PlayScene::createBoardSlots()
     playerLabelTransform.position = {500.0F, 615.0F};
 
     auto& playerLabelText = playerLabel.addComponent<cbit::ecs::TextComponent>();
-    playerLabelText.content = "Player";
+    playerLabelText.content = _matchState.players[0].displayName;
     playerLabelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
     playerLabelText.fontSize = 20.0F;
     playerLabelText.color = {255, 255, 255, 255};
@@ -316,37 +256,120 @@ void PlayScene::createDeck()
         248.0F
     };
 
-    auto deck = buildDeck();
-    std::random_device randomDevice;
-    std::mt19937 generator(randomDevice());
-    std::shuffle(deck.begin(), deck.end(), generator);
-
-    for (std::size_t index = 0; index < deck.size(); ++index) {
+    for (std::size_t index = 0; index < _matchState.round.shuffledDeck.size(); ++index) {
         const float column = static_cast<float>(index % 13);
         const float row = static_cast<float>(index / 13);
         const glm::vec2 position {
             _deckOrigin.x + (column * (kCardWidth + kCardSpacing)),
             _deckOrigin.y + (row * (kCardHeight + kCardSpacing))
         };
-        createCard(deck[index], position);
+        createCard(_matchState.round.shuffledDeck[index], position);
+    }
+}
+
+/**
+ * @brief Creates HUD text that reflects the current match state.
+ */
+void PlayScene::createMatchHud()
+{
+    auto phaseText = world.addGameObject("PhaseInfoText");
+    phaseText.getComponent<cbit::ecs::TransformComponent>().position = {150.0F, 44.0F};
+    auto& phaseTextComponent = phaseText.addComponent<cbit::ecs::TextComponent>();
+    phaseTextComponent.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+    phaseTextComponent.fontSize = 20.0F;
+    phaseTextComponent.color = {249, 214, 119, 255};
+    phaseTextComponent.centered = false;
+    _phaseTextId = phaseText.getComponent<cbit::ecs::IdComponent>().id;
+
+    auto roundText = world.addGameObject("RoundInfoText");
+    roundText.getComponent<cbit::ecs::TransformComponent>().position = {150.0F, 70.0F};
+    auto& roundTextComponent = roundText.addComponent<cbit::ecs::TextComponent>();
+    roundTextComponent.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+    roundTextComponent.fontSize = 18.0F;
+    roundTextComponent.color = {214, 228, 240, 255};
+    roundTextComponent.centered = false;
+    _roundTextId = roundText.getComponent<cbit::ecs::IdComponent>().id;
+
+    auto localPlayerStatus = world.addGameObject("LocalPlayerStatusText");
+    localPlayerStatus.getComponent<cbit::ecs::TransformComponent>().position = {870.0F, 520.0F};
+    auto& localPlayerStatusText = localPlayerStatus.addComponent<cbit::ecs::TextComponent>();
+    localPlayerStatusText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+    localPlayerStatusText.fontSize = 18.0F;
+    localPlayerStatusText.color = {235, 244, 255, 255};
+    localPlayerStatusText.centered = false;
+    _localPlayerStatusTextId = localPlayerStatus.getComponent<cbit::ecs::IdComponent>().id;
+
+    auto opponentStatus = world.addGameObject("OpponentStatusText");
+    opponentStatus.getComponent<cbit::ecs::TransformComponent>().position = {870.0F, 160.0F};
+    auto& opponentStatusText = opponentStatus.addComponent<cbit::ecs::TextComponent>();
+    opponentStatusText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+    opponentStatusText.fontSize = 18.0F;
+    opponentStatusText.color = {235, 244, 255, 255};
+    opponentStatusText.centered = false;
+    _opponentStatusTextId = opponentStatus.getComponent<cbit::ecs::IdComponent>().id;
+}
+
+/**
+ * @brief Refreshes the HUD text from the current match state.
+ */
+void PlayScene::refreshMatchHud()
+{
+    if (auto phaseText = world.getGameObject(_phaseTextId)) {
+        auto& text = phaseText.getComponent<cbit::ecs::TextComponent>();
+        text.content = std::string("Phase: ") + gameplay::toString(_matchState.round.phase);
+    }
+
+    if (auto roundText = world.getGameObject(_roundTextId)) {
+        auto& text = roundText.getComponent<cbit::ecs::TextComponent>();
+        text.content = "Round: " + std::to_string(_matchState.round.roundNumber)
+            + "/" + std::to_string(_matchState.maxRounds)
+            + "  Players: " + std::to_string(_matchState.playerCount)
+            + "  Undealt Cards: " + std::to_string(_matchState.round.shuffledDeck.size() - _matchState.round.nextDrawIndex);
+    }
+
+    if (_matchState.players.size() > 0) {
+        if (auto localPlayerStatus = world.getGameObject(_localPlayerStatusTextId)) {
+            const auto& player = _matchState.players[0];
+            std::ostringstream builder;
+            builder << player.displayName
+                << "  Coins: " << player.coins
+                << "  Bet: " << player.currentBet
+                << "  Hand: " << (player.handCard ? player.handCard->definition.name : "none")
+                << "  Head: " << (player.headCardRevealedToOwner && player.headCard ? player.headCard->definition.name : "hidden");
+            localPlayerStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
+        }
+    }
+
+    if (_matchState.players.size() > 1) {
+        if (auto opponentStatus = world.getGameObject(_opponentStatusTextId)) {
+            const auto& player = _matchState.players[1];
+            std::ostringstream builder;
+            builder << player.displayName
+                << "  Coins: " << player.coins
+                << "  Bet: " << player.currentBet
+                << "  Hand: " << (player.handCard ? "hidden" : "none")
+                << "  Head: " << (player.headCard ? player.headCard->definition.name : "none");
+            opponentStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
+        }
     }
 }
 
 /**
  * @brief Creates one draggable card entity.
- * @param cardInfo Card face information used for the spawned card.
+ * @param cardInstance Card instance used for the spawned card.
  * @param position Spawn position.
  */
-void PlayScene::createCard(const CardInfo& cardInfo, const glm::vec2& position)
+void PlayScene::createCard(const gameplay::CardInstance& cardInstance, const glm::vec2& position)
 {
-    auto card = world.addGameObject(std::string(cardInfo.name));
+    auto card = world.addGameObject(cardInstance.definition.name);
     auto& transform = card.getComponent<cbit::ecs::TransformComponent>();
     transform.position = position;
 
     auto& cardComponent = card.addComponent<CardComponent>();
-    cardComponent.name = std::string(cardInfo.name);
-    cardComponent.value = cardInfo.value;
+    cardComponent.name = cardInstance.definition.name;
+    cardComponent.value = cardInstance.definition.scoreValue;
     cardComponent.faceUp = false;
+    cardComponent.frontSourcePosition = cardInstance.definition.sourcePosition;
 
     auto& sprite = card.addComponent<cbit::ecs::SpriteComponent>();
     sprite.assetPath = kCardTexturePath;
@@ -384,29 +407,6 @@ void PlayScene::createSlot(std::string_view tag, const glm::vec2& position, cons
 
     auto& slotComponent = slot.addComponent<SlotComponent>();
     slotComponent.kind = kind;
-}
-
-/**
- * @brief Returns the front-face tile source for a card.
- * @param card Card component describing the card.
- * @return Source position on the tilemap for the card face.
- */
-glm::vec2 PlayScene::getCardFrontSourcePosition(const CardComponent& card)
-{
-    const auto deck = buildDeck();
-    const auto iterator = std::find_if(
-        deck.begin(),
-        deck.end(),
-        [&card](const CardInfo& cardInfo) {
-            return cardInfo.name == card.name;
-        }
-    );
-
-    if (iterator == deck.end()) {
-        return kCardBackSourcePosition;
-    }
-
-    return iterator->sourcePosition;
 }
 
 } // namespace shark_card_game::scenes

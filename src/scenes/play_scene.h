@@ -16,18 +16,10 @@
 #include <glm/vec2.hpp>
 
 #include "cbit/core/scene.hpp"
+#include "../gameplay/gameplay_state.h"
 #include "../components/components.h"
 
 namespace shark_card_game::scenes {
-
-/**
- * @brief Describes one card face on the tilemap.
- */
-struct CardInfo {
-    std::string_view name;
-    int value = 0;
-    glm::vec2 sourcePosition {0.0F, 0.0F};
-};
 
 /**
  * @brief Main gameplay scene for SharkCardGame.
@@ -63,11 +55,21 @@ private:
     void createDeck();
 
     /**
+     * @brief Creates HUD text that reflects the current match state.
+     */
+    void createMatchHud();
+
+    /**
+     * @brief Refreshes the HUD text from the current match state.
+     */
+    void refreshMatchHud();
+
+    /**
      * @brief Creates one draggable card entity.
-     * @param cardInfo Card face information used for the spawned card.
+     * @param card Card instance used for the spawned card.
      * @param position Spawn position.
      */
-    void createCard(const CardInfo& cardInfo, const glm::vec2& position);
+    void createCard(const gameplay::CardInstance& card, const glm::vec2& position);
 
     /**
      * @brief Creates a visual slot on the board.
@@ -77,16 +79,14 @@ private:
      */
     void createSlot(std::string_view tag, const glm::vec2& position, SlotKind kind);
 
-    /**
-     * @brief Returns the front-face tile source for a card.
-     * @param card Card component describing the card.
-     * @return Source position on the tilemap for the card face.
-     */
-    static glm::vec2 getCardFrontSourcePosition(const CardComponent& card);
-
     std::function<void()> _onReturnToMenu;
+    gameplay::MatchState _matchState;
     float _deltaTimeSeconds = 0.0F;
     glm::vec2 _deckOrigin {0.0F, 0.0F};
+    cbit::ecs::GameObjectId _phaseTextId = 0;
+    cbit::ecs::GameObjectId _roundTextId = 0;
+    cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
+    cbit::ecs::GameObjectId _opponentStatusTextId = 0;
 };
 
 } // namespace shark_card_game::scenes

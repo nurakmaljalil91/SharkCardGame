@@ -20,6 +20,7 @@ file(COPY ${RESOURCES_FILES} DESTINATION ${CMAKE_BINARY_DIR}/resources)
 add_executable(
     SharkCardGame
     src/main.cpp
+    src/gameplay/gameplay_state.cpp
     src/scenes/menu_scene.cpp
     src/scenes/play_scene.cpp
 )

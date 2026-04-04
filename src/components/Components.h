@@ -16,11 +16,14 @@
 #include <string>
 #include <vector>
 
+#include <glm/vec2.hpp>
+
 struct CardComponent {
     std::string name;
     int value;
     bool faceUp = false;
     std::uint64_t snappedSlotId = 0;
+    glm::vec2 frontSourcePosition {0.0F, 0.0F};
 };
 
 struct PlayerComponent {
