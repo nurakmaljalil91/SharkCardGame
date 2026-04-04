@@ -1,0 +1,38 @@
+{
+  "name": "shark-card-game",
+  "version-string": "1.0.0",
+  "builtin-baseline": "61d43ee6f0cc440dc97983d36e0c85e80fe429d4",
+  "dependencies": [
+    {
+      "name": "spdlog",
+      "version>=": "1.17.0"
+    },
+    {
+      "name": "sdl3",
+      "version>=": "3.4.2#1"
+    },
+    {
+      "name": "sdl3-image",
+      "version>=": "3.2.4",
+      "features": [
+        "png"
+      ]
+    },
+    {
+      "name": "sdl3-ttf",
+      "version>=": "3.2.2"
+    },
+    {
+      "name": "entt",
+      "version>=": "3.16.0"
+    },
+    {
+      "name": "glm",
+      "version>=": "1.0.3"
+    },
+    {
+      "name": "simdjson",
+      "version>=": "4.6.0"
+    }
+  ]
+}
