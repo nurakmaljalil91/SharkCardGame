@@ -10,6 +10,7 @@
 #include "play_scene.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <sstream>
 #include <utility>
 #include <entt/entity/registry.hpp>
@@ -35,7 +36,18 @@ namespace shark_card_game::scenes {
          * @return `true` when snapped, cards should show their front face.
          */
         bool shouldShowFrontFace(const SlotKind slotKind) {
-            return slotKind == SlotKind::PlayerHand || slotKind == SlotKind::NonPlayableCharacterHand;
+            return slotKind == SlotKind::PlayerHand || slotKind == SlotKind::NonPlayableCharacterHead;
+        }
+
+        /**
+         * @brief Applies a simple ease-out curve for card travel.
+         * @param t Interpolation factor in the range [0, 1].
+         * @return Eased interpolation factor.
+         */
+        float easeOutCubic(const float t) {
+            const float clamped = std::clamp(t, 0.0F, 1.0F);
+            const float inverse = 1.0F - clamped;
+            return 1.0F - (inverse * inverse * inverse);
         }
     } // namespace
 
@@ -70,7 +82,7 @@ namespace shark_card_game::scenes {
 
         auto &instructionsText = instructions.addComponent<cbit::ecs::TextComponent>();
         instructionsText.content =
-                "Drag cards into the highlighted slots. Hand slots reveal cards, head slots keep them hidden.";
+                "Opening cards are dealt automatically. Your hand is visible, your head is hidden, and NPC head cards are revealed.";
         instructionsText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
         instructionsText.fontSize = 15.0F;
         instructionsText.color = {210, 226, 240, 255};
@@ -96,6 +108,7 @@ namespace shark_card_game::scenes {
         createMatchHud();
         createBoardSlots();
         createDeck();
+        dealOpeningCards();
         refreshMatchHud();
 
         world.addSystem([](cbit::ecs::EntityComponentSystem &ecs) {
@@ -167,8 +180,6 @@ namespace shark_card_game::scenes {
                 }
 
                 card.snappedSlotId = 0;
-                card.faceUp = true;
-                sprite.sourcePosition = card.frontSourcePosition;
                 sprite.renderOrder = 10;
                 transform.rotation = std::sin(_deltaTimeSeconds * 8.0F) * 2.0F;
             }
@@ -196,6 +207,7 @@ namespace shark_card_game::scenes {
      */
     void PlayScene::update(float deltaTimeSeconds) {
         _deltaTimeSeconds = deltaTimeSeconds;
+        updateDealAnimation(deltaTimeSeconds);
         refreshMatchHud();
         world.update(deltaTimeSeconds);
     }
@@ -204,6 +216,9 @@ namespace shark_card_game::scenes {
      * @brief Creates all static slot entities for the card table.
      */
     void PlayScene::createBoardSlots() {
+        _handSlotIds.assign(_matchState.players.size(), 0);
+        _headSlotIds.assign(_matchState.players.size(), 0);
+
         struct SeatLayout {
             std::string handTag;
             std::string headTag;
@@ -263,8 +278,14 @@ namespace shark_card_game::scenes {
                 continue;
             }
 
-            createSlot(seatLayout.handTag, seatLayout.handPosition, seatLayout.handKind);
-            createSlot(seatLayout.headTag, seatLayout.headPosition, seatLayout.headKind);
+            _handSlotIds[seatLayout.playerIndex] = createSlot(
+                seatLayout.handTag,
+                seatLayout.handPosition,
+                seatLayout.handKind);
+            _headSlotIds[seatLayout.playerIndex] = createSlot(
+                seatLayout.headTag,
+                seatLayout.headPosition,
+                seatLayout.headKind);
 
             auto label = world.addGameObject(seatLayout.handTag + "Label");
             label.getComponent<cbit::ecs::TransformComponent>().position = seatLayout.labelPosition;
@@ -281,6 +302,9 @@ namespace shark_card_game::scenes {
      * @brief Creates the deck of draggable cards.
      */
     void PlayScene::createDeck() {
+        _deckCardIds.clear();
+        _deckCardIds.reserve(_matchState.round.shuffledDeck.size());
+
         _deckOrigin = {
             (1280.0F - ((kCardWidth * 13.0F) + (kCardSpacing * 12.0F))) * 0.5F + (kCardWidth * 0.5F),
             290.0F
@@ -295,6 +319,149 @@ namespace shark_card_game::scenes {
             };
             createCard(_matchState.round.shuffledDeck[index], position);
         }
+    }
+
+    /**
+     * @brief Prepares one hand card and one head card for each player.
+     */
+    void PlayScene::dealOpeningCards() {
+        const std::size_t playerCount = _matchState.players.size();
+        const std::size_t requiredCards = playerCount * 2;
+        if (_deckCardIds.size() < requiredCards || _handSlotIds.size() < playerCount || _headSlotIds.size() < playerCount) {
+            cbit2d::core::Logger::error("SharkCardGame could not deal opening cards because the scene state is incomplete");
+            return;
+        }
+
+        _dealSteps.clear();
+        _dealSteps.reserve(requiredCards);
+        _nextDealStepIndex = 0;
+        _isDealing = true;
+        _dealStepDelayRemainingSeconds = 0.0F;
+        _activeDealAnimation.cardId = 0;
+        _activeDealAnimation.slotId = 0;
+        _activeDealAnimation.elapsedSeconds = 0.0F;
+
+        struct PreparedDealStep {
+            cbit::ecs::GameObjectId handCardId = 0;
+            cbit::ecs::GameObjectId handSlotId = 0;
+            cbit::ecs::GameObjectId headCardId = 0;
+            cbit::ecs::GameObjectId headSlotId = 0;
+        };
+
+        std::vector<PreparedDealStep> preparedSteps(playerCount);
+        for (std::size_t playerIndex = 0; playerIndex < playerCount; ++playerIndex) {
+            auto &player = _matchState.players[playerIndex];
+
+            const std::size_t handCardIndex = _matchState.round.nextDrawIndex++;
+            const std::size_t headCardIndex = _matchState.round.nextDrawIndex++;
+
+            player.handCard = _matchState.round.shuffledDeck[handCardIndex];
+            player.headCard = _matchState.round.shuffledDeck[headCardIndex];
+            player.headCardRevealedToOwner = false;
+
+            preparedSteps[playerIndex] = PreparedDealStep{
+                _deckCardIds[handCardIndex],
+                _handSlotIds[playerIndex],
+                _deckCardIds[headCardIndex],
+                _headSlotIds[playerIndex]
+            };
+        }
+
+        for (const PreparedDealStep &preparedStep: preparedSteps) {
+            _dealSteps.push_back(DealStep{preparedStep.handCardId, preparedStep.handSlotId});
+        }
+
+        for (const PreparedDealStep &preparedStep: preparedSteps) {
+            _dealSteps.push_back(DealStep{preparedStep.headCardId, preparedStep.headSlotId});
+        }
+    }
+
+    /**
+     * @brief Advances the opening deal animation.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void PlayScene::updateDealAnimation(const float deltaTimeSeconds) {
+        if (!_isDealing) {
+            return;
+        }
+
+        if (_activeDealAnimation.cardId != 0) {
+            auto card = world.getGameObject(_activeDealAnimation.cardId);
+            if (!card) {
+                _activeDealAnimation.cardId = 0;
+                _activeDealAnimation.slotId = 0;
+                return;
+            }
+
+            _activeDealAnimation.elapsedSeconds += deltaTimeSeconds;
+            const float normalizedTime = _dealTravelDurationSeconds > 0.0F
+                ? _activeDealAnimation.elapsedSeconds / _dealTravelDurationSeconds
+                : 1.0F;
+            const float easedTime = easeOutCubic(normalizedTime);
+
+            auto &transform = card.getComponent<cbit::ecs::TransformComponent>();
+            transform.position = _activeDealAnimation.startPosition
+                                 + ((_activeDealAnimation.targetPosition - _activeDealAnimation.startPosition)
+                                    * easedTime);
+
+            if (normalizedTime >= 1.0F) {
+                placeCardInSlot(_activeDealAnimation.cardId, _activeDealAnimation.slotId);
+                _activeDealAnimation.cardId = 0;
+                _activeDealAnimation.slotId = 0;
+                _activeDealAnimation.elapsedSeconds = 0.0F;
+                _dealStepDelayRemainingSeconds = _dealStepDelaySeconds;
+            }
+
+            return;
+        }
+
+        if (_nextDealStepIndex >= _dealSteps.size()) {
+            _isDealing = false;
+            return;
+        }
+
+        _dealStepDelayRemainingSeconds -= deltaTimeSeconds;
+        if (_dealStepDelayRemainingSeconds > 0.0F) {
+            return;
+        }
+
+        beginNextDealStep();
+    }
+
+    /**
+     * @brief Starts the next queued card animation if available.
+     */
+    void PlayScene::beginNextDealStep() {
+        if (_nextDealStepIndex >= _dealSteps.size()) {
+            _isDealing = false;
+            return;
+        }
+
+        const DealStep &step = _dealSteps[_nextDealStepIndex++];
+        auto card = world.getGameObject(step.cardId);
+        auto slot = world.getGameObject(step.slotId);
+        if (!card || !slot) {
+            beginNextDealStep();
+            return;
+        }
+
+        auto &cardTransform = card.getComponent<cbit::ecs::TransformComponent>();
+        auto &cardData = card.getComponent<CardComponent>();
+        auto &cardSprite = card.getComponent<cbit::ecs::SpriteComponent>();
+        auto &dragable = card.getComponent<cbit::ecs::DragableComponent>();
+        const auto &slotTransform = slot.getComponent<cbit::ecs::TransformComponent>();
+
+        cardData.faceUp = false;
+        cardData.snappedSlotId = 0;
+        cardSprite.sourcePosition = kCardBackSourcePosition;
+        dragable.enabled = false;
+        dragable.isDragging = false;
+
+        _activeDealAnimation.cardId = step.cardId;
+        _activeDealAnimation.slotId = step.slotId;
+        _activeDealAnimation.startPosition = cardTransform.position;
+        _activeDealAnimation.targetPosition = slotTransform.position;
+        _activeDealAnimation.elapsedSeconds = 0.0F;
     }
 
     /**
@@ -408,6 +575,8 @@ namespace shark_card_game::scenes {
         auto &transform = card.getComponent<cbit::ecs::TransformComponent>();
         transform.position = position;
 
+        _deckCardIds.push_back(card.getComponent<cbit::ecs::IdComponent>().id);
+
         auto &cardComponent = card.addComponent<CardComponent>();
         cardComponent.name = cardInstance.definition.name;
         cardComponent.value = cardInstance.definition.scoreValue;
@@ -425,7 +594,36 @@ namespace shark_card_game::scenes {
         auto &collider = card.addComponent<cbit::ecs::ColliderComponent>();
         collider.size = sprite.size;
 
-        card.addComponent<cbit::ecs::DragableComponent>();
+        auto &dragable = card.addComponent<cbit::ecs::DragableComponent>();
+        dragable.enabled = false;
+    }
+
+    /**
+     * @brief Places one card entity into a specific slot and applies visibility.
+     * @param cardId Card entity to place.
+     * @param slotId Target slot entity.
+     */
+    void PlayScene::placeCardInSlot(const cbit::ecs::GameObjectId cardId, const cbit::ecs::GameObjectId slotId) {
+        auto card = world.getGameObject(cardId);
+        auto slot = world.getGameObject(slotId);
+        if (!card || !slot) {
+            return;
+        }
+
+        const auto &slotTransform = slot.getComponent<cbit::ecs::TransformComponent>();
+        const auto &slotData = slot.getComponent<SlotComponent>();
+
+        auto &cardTransform = card.getComponent<cbit::ecs::TransformComponent>();
+        auto &cardSprite = card.getComponent<cbit::ecs::SpriteComponent>();
+        auto &cardData = card.getComponent<CardComponent>();
+        auto &dragable = card.getComponent<cbit::ecs::DragableComponent>();
+
+        cardTransform.position = slotTransform.position;
+        cardData.faceUp = shouldShowFrontFace(slotData.kind);
+        cardData.snappedSlotId = slotId;
+        cardSprite.sourcePosition = cardData.faceUp ? cardData.frontSourcePosition : kCardBackSourcePosition;
+        dragable.enabled = false;
+        dragable.isDragging = false;
     }
 
     /**
@@ -434,7 +632,7 @@ namespace shark_card_game::scenes {
      * @param position Slot center position.
      * @param kind Logical slot role used for snap behavior.
      */
-    void PlayScene::createSlot(std::string_view tag, const glm::vec2 &position, const SlotKind kind) {
+    cbit::ecs::GameObjectId PlayScene::createSlot(std::string_view tag, const glm::vec2 &position, const SlotKind kind) {
         auto slot = world.addGameObject(std::string(tag));
         auto &transform = slot.getComponent<cbit::ecs::TransformComponent>();
         transform.position = position;
@@ -449,5 +647,7 @@ namespace shark_card_game::scenes {
 
         auto &slotComponent = slot.addComponent<SlotComponent>();
         slotComponent.kind = kind;
+
+        return slot.getComponent<cbit::ecs::IdComponent>().id;
     }
 } // namespace shark_card_game::scenes

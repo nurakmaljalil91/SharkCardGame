@@ -45,6 +45,19 @@ public:
     void update(float deltaTimeSeconds) override;
 
 private:
+    struct DealStep {
+        cbit::ecs::GameObjectId cardId = 0;
+        cbit::ecs::GameObjectId slotId = 0;
+    };
+
+    struct ActiveDealAnimation {
+        cbit::ecs::GameObjectId cardId = 0;
+        cbit::ecs::GameObjectId slotId = 0;
+        glm::vec2 startPosition {0.0F, 0.0F};
+        glm::vec2 targetPosition {0.0F, 0.0F};
+        float elapsedSeconds = 0.0F;
+    };
+
     /**
      * @brief Creates all static slot entities for the card table.
      */
@@ -54,6 +67,29 @@ private:
      * @brief Creates the deck of draggable cards.
      */
     void createDeck();
+
+    /**
+     * @brief Prepares one hand card and one head card for each player.
+     */
+    void dealOpeningCards();
+
+    /**
+     * @brief Advances the opening deal animation.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void updateDealAnimation(float deltaTimeSeconds);
+
+    /**
+     * @brief Starts the next queued card animation if available.
+     */
+    void beginNextDealStep();
+
+    /**
+     * @brief Places one card entity into a specific slot and applies visibility.
+     * @param cardId Card entity to place.
+     * @param slotId Target slot entity.
+     */
+    void placeCardInSlot(cbit::ecs::GameObjectId cardId, cbit::ecs::GameObjectId slotId);
 
     /**
      * @brief Creates HUD text that reflects the current match state.
@@ -78,12 +114,22 @@ private:
      * @param position Slot center position.
      * @param kind Logical slot role used for snap behavior.
      */
-    void createSlot(std::string_view tag, const glm::vec2& position, SlotKind kind);
+    cbit::ecs::GameObjectId createSlot(std::string_view tag, const glm::vec2& position, SlotKind kind);
 
     std::function<void()> _onReturnToMenu;
     gameplay::MatchState _matchState;
     float _deltaTimeSeconds = 0.0F;
     glm::vec2 _deckOrigin {0.0F, 0.0F};
+    std::vector<cbit::ecs::GameObjectId> _deckCardIds;
+    std::vector<cbit::ecs::GameObjectId> _handSlotIds;
+    std::vector<cbit::ecs::GameObjectId> _headSlotIds;
+    std::vector<DealStep> _dealSteps;
+    std::size_t _nextDealStepIndex = 0;
+    bool _isDealing = false;
+    float _dealStepDelaySeconds = 0.08F;
+    float _dealStepDelayRemainingSeconds = 0.0F;
+    float _dealTravelDurationSeconds = 0.22F;
+    ActiveDealAnimation _activeDealAnimation;
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;

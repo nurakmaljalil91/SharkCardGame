@@ -170,8 +170,6 @@ Implement deterministic round setup:
    - local player head is hidden from the local player
    - other players' head cards are visible
 
-For the first playable version, use one local player plus one NPC.
-
 ### Phase 4: Betting Phase
 
 Add turn-based betting UI and state transitions.
