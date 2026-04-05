@@ -102,9 +102,19 @@ private:
     void createBettingPanel();
 
     /**
+     * @brief Creates the centered match-finished overlay panel.
+     */
+    void createMatchFinishedPanel();
+
+    /**
      * @brief Refreshes betting panel text, styling, and button state.
      */
     void refreshBettingPanel();
+
+    /**
+     * @brief Refreshes the match-finished overlay visibility and text.
+     */
+    void refreshMatchFinishedPanel();
 
     /**
      * @brief Advances simple NPC betting turns.
@@ -159,6 +169,11 @@ private:
      * @brief Starts the next round or finishes the match if all rounds are complete.
      */
     void advanceRoundFlow();
+
+    /**
+     * @brief Resets the current scene into a fresh new match.
+     */
+    void startNewGame();
 
     /**
      * @brief Reflows the remaining undealt cards into a compact deck grid.
@@ -222,6 +237,9 @@ private:
     cbit::ecs::GameObjectId _betTenButtonId = 0;
     cbit::ecs::GameObjectId _betTwentyButtonId = 0;
     cbit::ecs::GameObjectId _betConfirmButtonId = 0;
+    cbit::ecs::GameObjectId _matchFinishedPanelId = 0;
+    cbit::ecs::GameObjectId _matchFinishedSummaryTextId = 0;
+    cbit::ecs::GameObjectId _newGameButtonId = 0;
     int _selectedBetAmount = 0;
     std::vector<int> _winningSeatIndices;
     std::vector<cbit::ecs::GameObjectId> _opponentStatusTextIds;

@@ -130,10 +130,12 @@ namespace shark_card_game::scenes {
 
         createMatchHud();
         createBettingPanel();
+        createMatchFinishedPanel();
         createBoardSlots();
         createDeck();
         dealOpeningCards();
         refreshBettingPanel();
+        refreshMatchFinishedPanel();
         refreshMatchHud();
 
         world.addSystem([](cbit::ecs::EntityComponentSystem &ecs) {
@@ -236,6 +238,7 @@ namespace shark_card_game::scenes {
         updateBettingPhase(deltaTimeSeconds);
         updateRevealAndResolution(deltaTimeSeconds);
         refreshBettingPanel();
+        refreshMatchFinishedPanel();
         refreshMatchHud();
         world.update(deltaTimeSeconds);
     }
@@ -753,6 +756,57 @@ namespace shark_card_game::scenes {
     }
 
     /**
+     * @brief Creates the centered match-finished overlay panel.
+     */
+    void PlayScene::createMatchFinishedPanel() {
+        auto panel = world.addGameObject("MatchFinishedPanel");
+        panel.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 360.0F};
+        _matchFinishedPanelId = panel.getComponent<cbit::ecs::IdComponent>().id;
+
+        auto &panelButton = panel.addComponent<cbit::ecs::ButtonComponent>();
+        panelButton.size = {420.0F, 220.0F};
+        panelButton.backgroundColor = {10, 16, 28, 0};
+        panelButton.hoverColor = {10, 16, 28, 0};
+        panelButton.pressedColor = {10, 16, 28, 0};
+        panelButton.borderColor = {231, 207, 115, 0};
+
+        auto &panelText = panel.addComponent<cbit::ecs::TextComponent>();
+        panelText.content = " ";
+        panelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+        panelText.fontSize = 28.0F;
+        panelText.color = {249, 214, 119, 0};
+
+        auto summary = world.addGameObject("MatchFinishedSummary");
+        summary.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 360.0F};
+        _matchFinishedSummaryTextId = summary.getComponent<cbit::ecs::IdComponent>().id;
+
+        auto &summaryText = summary.addComponent<cbit::ecs::TextComponent>();
+        summaryText.content = " ";
+        summaryText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+        summaryText.fontSize = 18.0F;
+        summaryText.color = {235, 244, 255, 0};
+        summaryText.wrapWidth = 340;
+
+        auto newGameButton = world.addGameObject("NewGameButton");
+        newGameButton.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 430.0F};
+        _newGameButtonId = newGameButton.getComponent<cbit::ecs::IdComponent>().id;
+
+        auto &button = newGameButton.addComponent<cbit::ecs::ButtonComponent>();
+        button.size = {0.0F, 0.0F};
+        button.backgroundColor = {34, 45, 67, 0};
+        button.hoverColor = {48, 64, 93, 0};
+        button.pressedColor = {22, 31, 46, 0};
+        button.borderColor = {231, 207, 115, 0};
+        button.onClick = [this]() { startNewGame(); };
+
+        auto &buttonText = newGameButton.addComponent<cbit::ecs::TextComponent>();
+        buttonText.content = " ";
+        buttonText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+        buttonText.fontSize = 24.0F;
+        buttonText.color = {255, 255, 255, 0};
+    }
+
+    /**
      * @brief Refreshes betting panel text, styling, and button state.
      */
     void PlayScene::refreshBettingPanel() {
@@ -819,6 +873,42 @@ namespace shark_card_game::scenes {
             button.hoverColor = canConfirm ? SDL_Color{48, 64, 93, 255} : SDL_Color{24, 31, 46, 255};
             button.pressedColor = canConfirm ? SDL_Color{22, 31, 46, 255} : SDL_Color{24, 31, 46, 255};
             button.borderColor = canConfirm ? SDL_Color{231, 207, 115, 255} : SDL_Color{92, 101, 118, 255};
+        }
+    }
+
+    /**
+     * @brief Refreshes the match-finished overlay visibility and text.
+     */
+    void PlayScene::refreshMatchFinishedPanel() {
+        const bool showMatchFinished = _matchState.round.phase == gameplay::MatchPhase::MatchFinished;
+
+        if (auto panel = world.getGameObject(_matchFinishedPanelId)) {
+            auto &button = panel.getComponent<cbit::ecs::ButtonComponent>();
+            auto &text = panel.getComponent<cbit::ecs::TextComponent>();
+            button.backgroundColor = showMatchFinished ? SDL_Color{10, 16, 28, 230} : SDL_Color{10, 16, 28, 0};
+            button.hoverColor = button.backgroundColor;
+            button.pressedColor = button.backgroundColor;
+            button.borderColor = showMatchFinished ? SDL_Color{231, 207, 115, 255} : SDL_Color{231, 207, 115, 0};
+            text.content = showMatchFinished ? "Match Finished" : " ";
+            text.color = showMatchFinished ? SDL_Color{249, 214, 119, 255} : SDL_Color{249, 214, 119, 0};
+        }
+
+        if (auto summary = world.getGameObject(_matchFinishedSummaryTextId)) {
+            auto &text = summary.getComponent<cbit::ecs::TextComponent>();
+            text.content = showMatchFinished ? _roundResultSummary : " ";
+            text.color = showMatchFinished ? SDL_Color{235, 244, 255, 255} : SDL_Color{235, 244, 255, 0};
+        }
+
+        if (auto newGameButton = world.getGameObject(_newGameButtonId)) {
+            auto &button = newGameButton.getComponent<cbit::ecs::ButtonComponent>();
+            auto &text = newGameButton.getComponent<cbit::ecs::TextComponent>();
+            button.size = showMatchFinished ? glm::vec2{180.0F, 56.0F} : glm::vec2{0.0F, 0.0F};
+            button.backgroundColor = showMatchFinished ? SDL_Color{34, 45, 67, 255} : SDL_Color{34, 45, 67, 0};
+            button.hoverColor = showMatchFinished ? SDL_Color{48, 64, 93, 255} : SDL_Color{48, 64, 93, 0};
+            button.pressedColor = showMatchFinished ? SDL_Color{22, 31, 46, 255} : SDL_Color{22, 31, 46, 0};
+            button.borderColor = showMatchFinished ? SDL_Color{231, 207, 115, 255} : SDL_Color{231, 207, 115, 0};
+            text.content = showMatchFinished ? "New Game" : " ";
+            text.color = showMatchFinished ? SDL_Color{255, 255, 255, 255} : SDL_Color{255, 255, 255, 0};
         }
     }
 
@@ -1104,7 +1194,7 @@ namespace shark_card_game::scenes {
                 }
             }
 
-            _roundResultSummary = builder.str() + "  Return to menu to restart";
+            _roundResultSummary = builder.str();
             _matchState.round.phase = gameplay::MatchPhase::MatchFinished;
             _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
             return;
@@ -1118,6 +1208,33 @@ namespace shark_card_game::scenes {
         _matchState.round.playersActedCount = 0;
         layoutRemainingDeck();
         _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+        dealOpeningCards();
+    }
+
+    /**
+     * @brief Resets the current scene into a fresh new match.
+     */
+    void PlayScene::startNewGame() {
+        clearRoundCards();
+
+        for (std::size_t cardIndex = _matchState.round.nextDrawIndex; cardIndex < _deckCardIds.size(); ++cardIndex) {
+            if (auto card = world.getGameObject(_deckCardIds[cardIndex])) {
+                world.removeGameObject(card);
+            }
+        }
+
+        _deckCardIds.clear();
+        _matchState = gameplay::createInitialMatchState(4, 0);
+        _selectedBetAmount = 0;
+        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
+        _revealDelayRemainingSeconds = _revealDelaySeconds;
+        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
+        _roundResolved = false;
+        _winningTotal = 0;
+        _winningSeatIndices.clear();
+        _roundResultSummary.clear();
+
+        createDeck();
         dealOpeningCards();
     }
 
