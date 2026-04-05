@@ -135,6 +135,13 @@ struct MatchState {
 std::vector<CardDefinition> createStandardDeckDefinitions();
 
 /**
+ * @brief Creates a freshly shuffled round state.
+ * @param roundNumber Round number to assign.
+ * @return Initialized round state with a shuffled deck.
+ */
+RoundState createShuffledRound(int roundNumber);
+
+/**
  * @brief Creates the initial match state for a new game.
  * @param playerCount Number of players to include.
  * @param localPlayerSeatIndex Seat index controlled by the local player.

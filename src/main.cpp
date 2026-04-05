@@ -28,6 +28,12 @@ int main(int argc, char* argv[])
     application.getSceneManager().addScene(
         "MenuScene",
         std::make_shared<shark_card_game::scenes::MenuScene>([&application]() {
+            application.getSceneManager().addScene(
+                "PlayScene",
+                std::make_shared<shark_card_game::scenes::PlayScene>([&application]() {
+                    application.getSceneManager().setActiveScene("MenuScene");
+                })
+            );
             application.getSceneManager().setActiveScene("PlayScene");
         })
     );

@@ -186,6 +186,36 @@ std::vector<CardDefinition> createStandardDeckDefinitions()
 }
 
 /**
+ * @brief Creates a freshly shuffled round state.
+ * @param roundNumber Round number to assign.
+ * @return Initialized round state with a shuffled deck.
+ */
+RoundState createShuffledRound(const int roundNumber)
+{
+    RoundState roundState;
+    roundState.roundNumber = std::max(1, roundNumber);
+    roundState.phase = MatchPhase::Deal;
+    roundState.pot = 0;
+    roundState.activePlayerSeatIndex = 0;
+    roundState.playersActedCount = 0;
+
+    std::vector<CardDefinition> definitions = createStandardDeckDefinitions();
+    roundState.shuffledDeck.reserve(definitions.size());
+    for (std::size_t cardIndex = 0; cardIndex < definitions.size(); ++cardIndex) {
+        roundState.shuffledDeck.push_back(CardInstance {
+            static_cast<std::uint32_t>(cardIndex + 1),
+            std::move(definitions[cardIndex])
+        });
+    }
+
+    std::random_device randomDevice;
+    std::mt19937 generator(randomDevice());
+    std::shuffle(roundState.shuffledDeck.begin(), roundState.shuffledDeck.end(), generator);
+
+    return roundState;
+}
+
+/**
  * @brief Creates the initial match state for a new game.
  * @param playerCount Number of players to include.
  * @param localPlayerSeatIndex Seat index controlled by the local player.
@@ -210,18 +240,7 @@ MatchState createInitialMatchState(int playerCount, int localPlayerSeatIndex)
         });
     }
 
-    std::vector<CardDefinition> definitions = createStandardDeckDefinitions();
-    matchState.round.shuffledDeck.reserve(definitions.size());
-    for (std::size_t cardIndex = 0; cardIndex < definitions.size(); ++cardIndex) {
-        matchState.round.shuffledDeck.push_back(CardInstance {
-            static_cast<std::uint32_t>(cardIndex + 1),
-            std::move(definitions[cardIndex])
-        });
-    }
-
-    std::random_device randomDevice;
-    std::mt19937 generator(randomDevice());
-    std::shuffle(matchState.round.shuffledDeck.begin(), matchState.round.shuffledDeck.end(), generator);
+    matchState.round = createShuffledRound(1);
 
     return matchState;
 }

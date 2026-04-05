@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <ranges>
 #include <sstream>
 #include <utility>
 #include <entt/entity/registry.hpp>
@@ -233,6 +234,7 @@ namespace shark_card_game::scenes {
         _deltaTimeSeconds = deltaTimeSeconds;
         updateDealAnimation(deltaTimeSeconds);
         updateBettingPhase(deltaTimeSeconds);
+        updateRevealAndResolution(deltaTimeSeconds);
         refreshBettingPanel();
         refreshMatchHud();
         world.update(deltaTimeSeconds);
@@ -244,6 +246,8 @@ namespace shark_card_game::scenes {
     void PlayScene::createBoardSlots() {
         _handSlotIds.assign(_matchState.players.size(), 0);
         _headSlotIds.assign(_matchState.players.size(), 0);
+        _handCardIds.assign(_matchState.players.size(), 0);
+        _headCardIds.assign(_matchState.players.size(), 0);
 
         struct SeatLayout {
             std::string handTag;
@@ -368,6 +372,12 @@ namespace shark_card_game::scenes {
         _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
         _selectedBetAmount = 0;
         _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
+        _revealDelayRemainingSeconds = _revealDelaySeconds;
+        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
+        _roundResolved = false;
+        _winningTotal = 0;
+        _winningSeatIndices.clear();
+        _roundResultSummary.clear();
         _dealStepDelayRemainingSeconds = 0.0F;
         _activeDealAnimation.cardId = 0;
         _activeDealAnimation.slotId = 0;
@@ -403,6 +413,8 @@ namespace shark_card_game::scenes {
                 _deckCardIds[headCardIndex],
                 _headSlotIds[playerIndex]
             };
+            _handCardIds[playerIndex] = _deckCardIds[handCardIndex];
+            _headCardIds[playerIndex] = _deckCardIds[headCardIndex];
         }
 
         const std::vector<int> clockwiseSeatOrder{1, 3, 0, 2};
@@ -608,6 +620,12 @@ namespace shark_card_game::scenes {
                             << (_matchState.round.activePlayerSeatIndex == 0
                                     ? "Your Turn"
                                     : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
+                } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
+                    builder << "  Total: "
+                            << ((player.handCard ? player.handCard->definition.scoreValue : 0)
+                                + (player.headCard ? player.headCard->definition.scoreValue : 0))
+                            << "  Status: "
+                            << (std::ranges::find(_winningSeatIndices, 0) != _winningSeatIndices.end() ? "Winner" : "Lost");
                 }
                 localPlayerStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
@@ -632,6 +650,14 @@ namespace shark_card_game::scenes {
                             << (_matchState.round.activePlayerSeatIndex == static_cast<int>(playerIndex)
                                     ? "Thinking"
                                     : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
+                } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
+                    builder << "  Total: "
+                            << ((player.handCard ? player.handCard->definition.scoreValue : 0)
+                                + (player.headCard ? player.headCard->definition.scoreValue : 0))
+                            << "  Status: "
+                            << (std::ranges::find(_winningSeatIndices, static_cast<int>(playerIndex)) != _winningSeatIndices.end()
+                                    ? "Winner"
+                                    : "Lost");
                 }
                 opponentStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
@@ -754,7 +780,11 @@ namespace shark_card_game::scenes {
                                + std::string("  Pot: ") + std::to_string(_matchState.round.pot)
                                + "  Select: " + selection;
             } else if (_matchState.round.phase == gameplay::MatchPhase::Reveal) {
-                text.content = "Betting locked  Pot: " + std::to_string(_matchState.round.pot);
+                text.content = "Revealing head cards...  Pot: " + std::to_string(_matchState.round.pot);
+            } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
+                text.content = _roundResultSummary.empty()
+                    ? "Resolving round..."
+                    : _roundResultSummary;
             } else {
                 text.content = "Waiting for betting phase";
             }
@@ -889,12 +919,240 @@ namespace shark_card_game::scenes {
         if (_matchState.round.playersActedCount >= static_cast<int>(_matchState.players.size())) {
             _matchState.round.phase = gameplay::MatchPhase::Reveal;
             _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+            _revealDelayRemainingSeconds = _revealDelaySeconds;
+            _roundResolved = false;
+            revealAllHeadCards();
             return;
         }
 
         _matchState.round.activePlayerSeatIndex =
             (_matchState.round.activePlayerSeatIndex + 1) % static_cast<int>(_matchState.players.size());
         _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
+    }
+
+    /**
+     * @brief Advances reveal and round-resolution state.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void PlayScene::updateRevealAndResolution(const float deltaTimeSeconds) {
+        if (_matchState.round.phase == gameplay::MatchPhase::Reveal && !_roundResolved) {
+            _revealDelayRemainingSeconds -= deltaTimeSeconds;
+            if (_revealDelayRemainingSeconds <= 0.0F) {
+                resolveRoundResult();
+            }
+            return;
+        }
+
+        if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution && _roundResolved) {
+            _roundResolutionDelayRemainingSeconds -= deltaTimeSeconds;
+            if (_roundResolutionDelayRemainingSeconds <= 0.0F) {
+                advanceRoundFlow();
+            }
+        }
+    }
+
+    /**
+     * @brief Reveals all head cards for the current round.
+     */
+    void PlayScene::revealAllHeadCards() {
+        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+            auto &player = _matchState.players[playerIndex];
+            player.headCardRevealedToOwner = true;
+
+            if (playerIndex < _handCardIds.size()) {
+                if (auto handCard = world.getGameObject(_handCardIds[playerIndex])) {
+                    auto &handCardData = handCard.getComponent<CardComponent>();
+                    auto &handCardSprite = handCard.getComponent<cbit::ecs::SpriteComponent>();
+                    handCardData.faceUp = true;
+                    handCardSprite.sourcePosition = handCardData.frontSourcePosition;
+                }
+            }
+
+            if (playerIndex >= _headCardIds.size()) {
+                continue;
+            }
+
+            auto card = world.getGameObject(_headCardIds[playerIndex]);
+            if (!card) {
+                continue;
+            }
+
+            auto &cardData = card.getComponent<CardComponent>();
+            auto &cardSprite = card.getComponent<cbit::ecs::SpriteComponent>();
+            cardData.faceUp = true;
+            cardSprite.sourcePosition = cardData.frontSourcePosition;
+        }
+    }
+
+    /**
+     * @brief Computes winners and resolves round payouts.
+     */
+    void PlayScene::resolveRoundResult() {
+        _winningSeatIndices.clear();
+        _winningTotal = 0;
+
+        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+            const auto &player = _matchState.players[playerIndex];
+            const int total = (player.handCard ? player.handCard->definition.scoreValue : 0)
+                              + (player.headCard ? player.headCard->definition.scoreValue : 0);
+
+            if (_winningSeatIndices.empty() || total > _winningTotal) {
+                _winningSeatIndices = {static_cast<int>(playerIndex)};
+                _winningTotal = total;
+            } else if (total == _winningTotal) {
+                _winningSeatIndices.push_back(static_cast<int>(playerIndex));
+            }
+        }
+
+        if (_winningSeatIndices.size() == 1) {
+            const int winnerSeatIndex = _winningSeatIndices.front();
+            for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+                auto &player = _matchState.players[playerIndex];
+                if (static_cast<int>(playerIndex) == winnerSeatIndex) {
+                    player.coins += _matchState.round.pot + player.currentBet;
+                } else {
+                    player.coins -= player.currentBet;
+                }
+            }
+
+            _roundResultSummary = _matchState.players[static_cast<std::size_t>(winnerSeatIndex)].displayName
+                                  + " wins with " + std::to_string(_winningTotal)
+                                  + "  Pot: " + std::to_string(_matchState.round.pot);
+        } else {
+            const int winnerCount = static_cast<int>(_winningSeatIndices.size());
+            const int splitPayout = winnerCount > 0 ? _matchState.round.pot / winnerCount : 0;
+
+            for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+                auto &player = _matchState.players[playerIndex];
+                if (std::ranges::find(_winningSeatIndices, static_cast<int>(playerIndex)) != _winningSeatIndices.end()) {
+                    player.coins += splitPayout;
+                } else {
+                    player.coins -= player.currentBet;
+                }
+            }
+
+            std::ostringstream builder;
+            builder << "Tie at " << _winningTotal << " between ";
+            for (std::size_t winnerIndex = 0; winnerIndex < _winningSeatIndices.size(); ++winnerIndex) {
+                if (winnerIndex > 0) {
+                    builder << ", ";
+                }
+
+                builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices[winnerIndex])].displayName;
+            }
+
+            builder << "  Split pot: " << splitPayout;
+            _roundResultSummary = builder.str();
+        }
+
+        _roundResolved = true;
+        _matchState.round.phase = gameplay::MatchPhase::RoundResolution;
+        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
+    }
+
+    /**
+     * @brief Removes all round card entities from the scene.
+     */
+    void PlayScene::clearRoundCards() {
+        const auto removeCardIds = [this](std::vector<cbit::ecs::GameObjectId> &cardIds) {
+            for (const cbit::ecs::GameObjectId cardId: cardIds) {
+                if (auto card = world.getGameObject(cardId)) {
+                    world.removeGameObject(card);
+                }
+            }
+
+            cardIds.assign(_matchState.players.size(), 0);
+        };
+
+        removeCardIds(_handCardIds);
+        removeCardIds(_headCardIds);
+        _dealSteps.clear();
+        _nextDealStepIndex = 0;
+        _activeDealAnimation = ActiveDealAnimation{};
+    }
+
+    /**
+     * @brief Starts the next round or finishes the match if all rounds are complete.
+     */
+    void PlayScene::advanceRoundFlow() {
+        if (_matchState.round.roundNumber >= _matchState.maxRounds) {
+            int bestCoins = std::numeric_limits<int>::min();
+            _winningSeatIndices.clear();
+
+            for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+                const int coins = _matchState.players[playerIndex].coins;
+                if (_winningSeatIndices.empty() || coins > bestCoins) {
+                    _winningSeatIndices = {static_cast<int>(playerIndex)};
+                    bestCoins = coins;
+                } else if (coins == bestCoins) {
+                    _winningSeatIndices.push_back(static_cast<int>(playerIndex));
+                }
+            }
+
+            std::ostringstream builder;
+            if (_winningSeatIndices.size() == 1) {
+                builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices.front())].displayName
+                        << " wins the match with " << bestCoins << " coins";
+            } else {
+                builder << "Match tied at " << bestCoins << " coins between ";
+                for (std::size_t winnerIndex = 0; winnerIndex < _winningSeatIndices.size(); ++winnerIndex) {
+                    if (winnerIndex > 0) {
+                        builder << ", ";
+                    }
+
+                    builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices[winnerIndex])].displayName;
+                }
+            }
+
+            _roundResultSummary = builder.str() + "  Return to menu to restart";
+            _matchState.round.phase = gameplay::MatchPhase::MatchFinished;
+            _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+            return;
+        }
+
+        clearRoundCards();
+        ++_matchState.round.roundNumber;
+        _matchState.round.phase = gameplay::MatchPhase::Deal;
+        _matchState.round.pot = 0;
+        _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+        _matchState.round.playersActedCount = 0;
+        layoutRemainingDeck();
+        _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+        dealOpeningCards();
+    }
+
+    /**
+     * @brief Reflows the remaining undealt cards into a compact deck grid.
+     */
+    void PlayScene::layoutRemainingDeck() {
+        std::size_t remainingIndex = 0;
+        for (std::size_t cardIndex = _matchState.round.nextDrawIndex;
+             cardIndex < _deckCardIds.size();
+             ++cardIndex, ++remainingIndex) {
+            const cbit::ecs::GameObjectId cardId = _deckCardIds[cardIndex];
+            auto card = world.getGameObject(cardId);
+            if (!card) {
+                continue;
+            }
+
+            const float column = static_cast<float>(remainingIndex % 13);
+            const float row = static_cast<float>(remainingIndex / 13);
+            auto &transform = card.getComponent<cbit::ecs::TransformComponent>();
+            auto &cardData = card.getComponent<CardComponent>();
+            auto &sprite = card.getComponent<cbit::ecs::SpriteComponent>();
+            auto &dragable = card.getComponent<cbit::ecs::DragableComponent>();
+
+            transform.position = {
+                _deckOrigin.x + (column * (kCardWidth + kCardSpacing)),
+                _deckOrigin.y + (row * (kCardHeight + kCardSpacing))
+            };
+            transform.rotation = 0.0F;
+            cardData.faceUp = false;
+            cardData.snappedSlotId = 0;
+            sprite.sourcePosition = kCardBackSourcePosition;
+            dragable.enabled = false;
+            dragable.isDragging = false;
+        }
     }
 
     /**

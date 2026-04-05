@@ -135,6 +135,37 @@ private:
     void advanceBettingTurn();
 
     /**
+     * @brief Advances reveal and round-resolution state.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void updateRevealAndResolution(float deltaTimeSeconds);
+
+    /**
+     * @brief Reveals all head cards for the current round.
+     */
+    void revealAllHeadCards();
+
+    /**
+     * @brief Computes winners and resolves round payouts.
+     */
+    void resolveRoundResult();
+
+    /**
+     * @brief Removes all round card entities from the scene.
+     */
+    void clearRoundCards();
+
+    /**
+     * @brief Starts the next round or finishes the match if all rounds are complete.
+     */
+    void advanceRoundFlow();
+
+    /**
+     * @brief Reflows the remaining undealt cards into a compact deck grid.
+     */
+    void layoutRemainingDeck();
+
+    /**
      * @brief Refreshes the HUD text from the current match state.
      */
     void refreshMatchHud();
@@ -161,6 +192,8 @@ private:
     std::vector<cbit::ecs::GameObjectId> _deckCardIds;
     std::vector<cbit::ecs::GameObjectId> _handSlotIds;
     std::vector<cbit::ecs::GameObjectId> _headSlotIds;
+    std::vector<cbit::ecs::GameObjectId> _handCardIds;
+    std::vector<cbit::ecs::GameObjectId> _headCardIds;
     std::vector<DealStep> _dealSteps;
     std::size_t _nextDealStepIndex = 0;
     bool _isDealing = false;
@@ -170,8 +203,15 @@ private:
     float _dealArcHeight = 28.0F;
     float _npcBetDelaySeconds = 0.7F;
     float _npcBetDelayRemainingSeconds = 0.0F;
+    float _revealDelaySeconds = 1.0F;
+    float _revealDelayRemainingSeconds = 0.0F;
+    float _roundResolutionDelaySeconds = 2.0F;
+    float _roundResolutionDelayRemainingSeconds = 0.0F;
+    bool _roundResolved = false;
+    int _winningTotal = 0;
     ActiveDealAnimation _activeDealAnimation;
     std::vector<float> _dealSoundBuffer;
+    std::string _roundResultSummary;
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
@@ -183,6 +223,7 @@ private:
     cbit::ecs::GameObjectId _betTwentyButtonId = 0;
     cbit::ecs::GameObjectId _betConfirmButtonId = 0;
     int _selectedBetAmount = 0;
+    std::vector<int> _winningSeatIndices;
     std::vector<cbit::ecs::GameObjectId> _opponentStatusTextIds;
 };
 
