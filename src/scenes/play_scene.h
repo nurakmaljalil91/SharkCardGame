@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <string_view>
+#include <vector>
 
 #include <glm/vec2.hpp>
 
@@ -86,7 +87,7 @@ private:
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
-    cbit::ecs::GameObjectId _opponentStatusTextId = 0;
+    std::vector<cbit::ecs::GameObjectId> _opponentStatusTextIds;
 };
 
 } // namespace shark_card_game::scenes
