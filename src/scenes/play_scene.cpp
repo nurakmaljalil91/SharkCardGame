@@ -8,18 +8,22 @@
  */
 
 #include "play_scene.h"
+
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
-#include <ranges>
 #include <sstream>
 #include <utility>
+
 #include <entt/entity/registry.hpp>
+
 #include "cbit/core/audio_service.hpp"
 #include "cbit/core/input.hpp"
 #include "cbit/core/logger.hpp"
 #include "cbit/ecs/components.hpp"
 #include "cbit/ecs/entity_component_system.hpp"
+#include "table_layout.h"
 
 namespace shark_card_game::scenes {
     namespace {
@@ -252,65 +256,9 @@ namespace shark_card_game::scenes {
         _handCardIds.assign(_matchState.players.size(), 0);
         _headCardIds.assign(_matchState.players.size(), 0);
 
-        struct SeatLayout {
-            std::string handTag;
-            std::string headTag;
-            glm::vec2 handPosition;
-            glm::vec2 headPosition;
-            glm::vec2 labelPosition;
-            SlotKind handKind;
-            SlotKind headKind;
-            int playerIndex;
-        };
-
-        const std::vector<SeatLayout> seatLayouts{
-            {
-                "Npc1HandSlot",
-                "Npc1HeadSlot",
-                {590.0F, 176.0F},
-                {690.0F, 176.0F},
-                {640.0F, 124.0F},
-                SlotKind::NonPlayableCharacterHand,
-                SlotKind::NonPlayableCharacterHead,
-                1
-            },
-            {
-                "Npc2HandSlot",
-                "Npc2HeadSlot",
-                {160.0F, 390.0F},
-                {260.0F, 390.0F},
-                {210.0F, 332.0F},
-                SlotKind::NonPlayableCharacterHand,
-                SlotKind::NonPlayableCharacterHead,
-                2
-            },
-            {
-                "Npc3HandSlot",
-                "Npc3HeadSlot",
-                {1020.0F, 390.0F},
-                {1120.0F, 390.0F},
-                {1070.0F, 332.0F},
-                SlotKind::NonPlayableCharacterHand,
-                SlotKind::NonPlayableCharacterHead,
-                3
-            },
-            {
-                "PlayerHandSlot",
-                "PlayerHeadSlot",
-                {590.0F, 614.0F},
-                {690.0F, 614.0F},
-                {640.0F, 674.0F},
-                SlotKind::PlayerHand,
-                SlotKind::PlayerHead,
-                0
-            }
-        };
+        const std::vector<SeatLayout> seatLayouts = buildSeatLayouts(_matchState);
 
         for (const SeatLayout &seatLayout: seatLayouts) {
-            if (seatLayout.playerIndex >= static_cast<int>(_matchState.players.size())) {
-                continue;
-            }
-
             _handSlotIds[seatLayout.playerIndex] = createSlot(
                 seatLayout.handTag,
                 seatLayout.handPosition,
@@ -420,7 +368,7 @@ namespace shark_card_game::scenes {
             _headCardIds[playerIndex] = _deckCardIds[headCardIndex];
         }
 
-        const std::vector<int> clockwiseSeatOrder{1, 3, 0, 2};
+        const std::vector<int> clockwiseSeatOrder = buildDealSeatOrder(_matchState);
         for (const int seatIndex: clockwiseSeatOrder) {
             if (seatIndex >= static_cast<int>(preparedSteps.size())) {
                 continue;
@@ -569,8 +517,12 @@ namespace shark_card_game::scenes {
         localPlayerStatusText.centered = false;
         _localPlayerStatusTextId = localPlayerStatus.getComponent<cbit::ecs::IdComponent>().id;
 
-        _opponentStatusTextIds.clear();
-        for (std::size_t playerIndex = 1; playerIndex < _matchState.players.size(); ++playerIndex) {
+        _opponentStatusTextIds.assign(_matchState.players.size(), 0);
+        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+            if (static_cast<int>(playerIndex) == _matchState.localPlayerSeatIndex) {
+                continue;
+            }
+
             auto opponentStatus = world.addGameObject(
                 "OpponentStatusText" + std::to_string(playerIndex));
             opponentStatus.getComponent<cbit::ecs::TransformComponent>().position = {
@@ -583,7 +535,7 @@ namespace shark_card_game::scenes {
             opponentStatusText.fontSize = 16.0F;
             opponentStatusText.color = {235, 244, 255, 255};
             opponentStatusText.centered = false;
-            _opponentStatusTextIds.push_back(opponentStatus.getComponent<cbit::ecs::IdComponent>().id);
+            _opponentStatusTextIds[playerIndex] = opponentStatus.getComponent<cbit::ecs::IdComponent>().id;
         }
     }
 
@@ -609,7 +561,8 @@ namespace shark_card_game::scenes {
 
         if (_matchState.players.size() > 0) {
             if (auto localPlayerStatus = world.getGameObject(_localPlayerStatusTextId)) {
-                const auto &player = _matchState.players[0];
+                const int localSeatIndex = _matchState.localPlayerSeatIndex;
+                const auto &player = _matchState.players[static_cast<std::size_t>(localSeatIndex)];
                 std::ostringstream builder;
                 builder << player.displayName
                         << "  Coins: " << player.coins
@@ -620,27 +573,31 @@ namespace shark_card_game::scenes {
                                               : "hidden");
                 if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
                     builder << "  Status: "
-                            << (_matchState.round.activePlayerSeatIndex == 0
+                            << (_matchState.round.activePlayerSeatIndex == localSeatIndex
                                     ? "Your Turn"
                                     : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
                 } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
                     builder << "  Total: "
-                            << ((player.handCard ? player.handCard->definition.scoreValue : 0)
-                                + (player.headCard ? player.headCard->definition.scoreValue : 0))
+                            << gameplay::calculatePlayerTotal(player)
                             << "  Status: "
-                            << (std::ranges::find(_winningSeatIndices, 0) != _winningSeatIndices.end() ? "Winner" : "Lost");
+                            << (std::ranges::find(_winningSeatIndices, localSeatIndex) != _winningSeatIndices.end()
+                                    ? "Winner"
+                                    : "Lost");
                 }
                 localPlayerStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
         }
 
-        for (std::size_t playerIndex = 1; playerIndex < _matchState.players.size(); ++playerIndex) {
-            const std::size_t statusIndex = playerIndex - 1;
-            if (statusIndex >= _opponentStatusTextIds.size()) {
+        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
+            if (static_cast<int>(playerIndex) == _matchState.localPlayerSeatIndex) {
                 continue;
             }
 
-            if (auto opponentStatus = world.getGameObject(_opponentStatusTextIds[statusIndex])) {
+            if (playerIndex >= _opponentStatusTextIds.size()) {
+                continue;
+            }
+
+            if (auto opponentStatus = world.getGameObject(_opponentStatusTextIds[playerIndex])) {
                 const auto &player = _matchState.players[playerIndex];
                 std::ostringstream builder;
                 builder << player.displayName
@@ -655,8 +612,7 @@ namespace shark_card_game::scenes {
                                     : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
                 } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
                     builder << "  Total: "
-                            << ((player.handCard ? player.handCard->definition.scoreValue : 0)
-                                + (player.headCard ? player.headCard->definition.scoreValue : 0))
+                            << gameplay::calculatePlayerTotal(player)
                             << "  Status: "
                             << (std::ranges::find(_winningSeatIndices, static_cast<int>(playerIndex)) != _winningSeatIndices.end()
                                     ? "Winner"
@@ -982,17 +938,7 @@ namespace shark_card_game::scenes {
             return;
         }
 
-        auto &player = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
-        const int committedBet = std::clamp(amount, 0, player.coins);
-
-        player.hasBetThisRound = true;
-        player.currentBet = committedBet;
-        player.declinedBet = committedBet == 0;
-
-        _matchState.round.pot = 0;
-        for (const auto &roundPlayer: _matchState.players) {
-            _matchState.round.pot += roundPlayer.currentBet;
-        }
+        gameplay::applyBetChoice(_matchState, _matchState.round.activePlayerSeatIndex, amount);
 
         if (_matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex) {
             _selectedBetAmount = 0;
@@ -1078,62 +1024,10 @@ namespace shark_card_game::scenes {
      * @brief Computes winners and resolves round payouts.
      */
     void PlayScene::resolveRoundResult() {
-        _winningSeatIndices.clear();
-        _winningTotal = 0;
-
-        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
-            const auto &player = _matchState.players[playerIndex];
-            const int total = (player.handCard ? player.handCard->definition.scoreValue : 0)
-                              + (player.headCard ? player.headCard->definition.scoreValue : 0);
-
-            if (_winningSeatIndices.empty() || total > _winningTotal) {
-                _winningSeatIndices = {static_cast<int>(playerIndex)};
-                _winningTotal = total;
-            } else if (total == _winningTotal) {
-                _winningSeatIndices.push_back(static_cast<int>(playerIndex));
-            }
-        }
-
-        if (_winningSeatIndices.size() == 1) {
-            const int winnerSeatIndex = _winningSeatIndices.front();
-            for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
-                auto &player = _matchState.players[playerIndex];
-                if (static_cast<int>(playerIndex) == winnerSeatIndex) {
-                    player.coins += _matchState.round.pot + player.currentBet;
-                } else {
-                    player.coins -= player.currentBet;
-                }
-            }
-
-            _roundResultSummary = _matchState.players[static_cast<std::size_t>(winnerSeatIndex)].displayName
-                                  + " wins with " + std::to_string(_winningTotal)
-                                  + "  Pot: " + std::to_string(_matchState.round.pot);
-        } else {
-            const int winnerCount = static_cast<int>(_winningSeatIndices.size());
-            const int splitPayout = winnerCount > 0 ? _matchState.round.pot / winnerCount : 0;
-
-            for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
-                auto &player = _matchState.players[playerIndex];
-                if (std::ranges::find(_winningSeatIndices, static_cast<int>(playerIndex)) != _winningSeatIndices.end()) {
-                    player.coins += splitPayout;
-                } else {
-                    player.coins -= player.currentBet;
-                }
-            }
-
-            std::ostringstream builder;
-            builder << "Tie at " << _winningTotal << " between ";
-            for (std::size_t winnerIndex = 0; winnerIndex < _winningSeatIndices.size(); ++winnerIndex) {
-                if (winnerIndex > 0) {
-                    builder << ", ";
-                }
-
-                builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices[winnerIndex])].displayName;
-            }
-
-            builder << "  Split pot: " << splitPayout;
-            _roundResultSummary = builder.str();
-        }
+        const gameplay::RoundResolution resolution = gameplay::resolveRound(_matchState);
+        _winningSeatIndices = resolution.winningSeatIndices;
+        _winningTotal = resolution.winningTotal;
+        _roundResultSummary = resolution.summary;
 
         _roundResolved = true;
         _matchState.round.phase = gameplay::MatchPhase::RoundResolution;
@@ -1224,7 +1118,7 @@ namespace shark_card_game::scenes {
         }
 
         _deckCardIds.clear();
-        _matchState = gameplay::createInitialMatchState(4, 0);
+        _matchState = gameplay::createInitialMatchState(_matchState.playerCount, _matchState.localPlayerSeatIndex);
         _selectedBetAmount = 0;
         _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
         _revealDelayRemainingSeconds = _revealDelaySeconds;

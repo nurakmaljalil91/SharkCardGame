@@ -70,12 +70,11 @@ The player with the highest total wins the round.
 
 If a player wins the round:
 
-- they receive double their own bet
-- they also collect the coins bet by the other players
+- they collect the pot made from all committed bets
 
 If a player loses the round:
 
-- they lose the coins they bet
+- they lose the coins they committed to the pot
 
 ### 5. Match Result
 

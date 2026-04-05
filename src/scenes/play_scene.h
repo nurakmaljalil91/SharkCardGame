@@ -18,6 +18,7 @@
 
 #include "cbit/core/scene.hpp"
 #include "../gameplay/gameplay_state.h"
+#include "../gameplay/match_rules.h"
 #include "../components/components.h"
 
 namespace shark_card_game::scenes {

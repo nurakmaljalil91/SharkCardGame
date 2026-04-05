@@ -21,8 +21,10 @@ add_executable(
     SharkCardGame
     src/main.cpp
     src/gameplay/gameplay_state.cpp
+    src/gameplay/match_rules.cpp
     src/scenes/menu_scene.cpp
     src/scenes/play_scene.cpp
+    src/scenes/table_layout.cpp
 )
 
 target_link_libraries(SharkCardGame PRIVATE cbit2d::cbit2d)

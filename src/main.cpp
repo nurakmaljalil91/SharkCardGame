@@ -25,22 +25,20 @@ int main(int argc, char* argv[])
     static_cast<void>(argv);
 
     cbit2d::core::Application application;
+    const auto createPlayScene = [&application]() {
+        return std::make_shared<shark_card_game::scenes::PlayScene>([&application]() {
+            application.getSceneManager().setActiveScene("MenuScene");
+        });
+    };
+
     application.getSceneManager().addScene(
         "MenuScene",
-        std::make_shared<shark_card_game::scenes::MenuScene>([&application]() {
+        std::make_shared<shark_card_game::scenes::MenuScene>([&application, &createPlayScene]() {
             application.getSceneManager().addScene(
                 "PlayScene",
-                std::make_shared<shark_card_game::scenes::PlayScene>([&application]() {
-                    application.getSceneManager().setActiveScene("MenuScene");
-                })
+                createPlayScene()
             );
             application.getSceneManager().setActiveScene("PlayScene");
-        })
-    );
-    application.getSceneManager().addScene(
-        "PlayScene",
-        std::make_shared<shark_card_game::scenes::PlayScene>([&application]() {
-            application.getSceneManager().setActiveScene("MenuScene");
         })
     );
     application.getSceneManager().setActiveScene("MenuScene");
