@@ -97,6 +97,11 @@ private:
     void createMatchHud();
 
     /**
+     * @brief Creates the placeholder betting panel for the upcoming betting phase.
+     */
+    void createBettingPanel();
+
+    /**
      * @brief Refreshes the HUD text from the current match state.
      */
     void refreshMatchHud();

@@ -128,6 +128,7 @@ namespace shark_card_game::scenes {
         menuButtonText.color = {255, 255, 255, 255};
 
         createMatchHud();
+        createBettingPanel();
         createBoardSlots();
         createDeck();
         dealOpeningCards();
@@ -605,6 +606,79 @@ namespace shark_card_game::scenes {
                         << "  Head: " << (player.headCard ? player.headCard->definition.name : "none");
                 opponentStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
+        }
+    }
+
+    /**
+     * @brief Creates the placeholder betting panel for the upcoming betting phase.
+     */
+    void PlayScene::createBettingPanel() {
+        constexpr glm::vec2 kPanelPosition{1032.0F, 603.0F};
+        constexpr glm::vec2 kPanelSize{348.0F, 124.0F};
+        constexpr float kButtonY = 641.0F;
+        constexpr glm::vec2 kSmallButtonSize{56.0F, 42.0F};
+        constexpr glm::vec2 kConfirmButtonSize{86.0F, 42.0F};
+
+        auto panel = world.addGameObject("BettingPanel");
+        panel.getComponent<cbit::ecs::TransformComponent>().position = kPanelPosition;
+
+        auto &panelButton = panel.addComponent<cbit::ecs::ButtonComponent>();
+        panelButton.size = kPanelSize;
+        panelButton.backgroundColor = {16, 25, 40, 230};
+        panelButton.hoverColor = {16, 25, 40, 230};
+        panelButton.pressedColor = {16, 25, 40, 230};
+        panelButton.borderColor = {86, 110, 145, 255};
+        panelButton.onClick = []() {
+        };
+
+        auto &panelText = panel.addComponent<cbit::ecs::TextComponent>();
+        panelText.content = "Betting Phase";
+        panelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+        panelText.fontSize = 20.0F;
+        panelText.color = {249, 214, 119, 255};
+
+        auto summary = world.addGameObject("BettingPanelSummary");
+        summary.getComponent<cbit::ecs::TransformComponent>().position = {1032.0F, 581.0F};
+
+        auto &summaryText = summary.addComponent<cbit::ecs::TextComponent>();
+        summaryText.content = "Your turn  Pot: 0  Coins: 100";
+        summaryText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+        summaryText.fontSize = 14.0F;
+        summaryText.color = {214, 228, 240, 255};
+
+        struct BettingButtonLayout {
+            const char *name;
+            const char *label;
+            glm::vec2 position;
+            glm::vec2 size;
+        };
+
+        const std::vector<BettingButtonLayout> buttonLayouts{
+            {"BetPassButton", "Pass", {892.0F, kButtonY}, kSmallButtonSize},
+            {"BetFiveButton", "5", {954.0F, kButtonY}, kSmallButtonSize},
+            {"BetTenButton", "10", {1016.0F, kButtonY}, kSmallButtonSize},
+            {"BetTwentyButton", "20", {1078.0F, kButtonY}, kSmallButtonSize},
+            {"BetConfirmButton", "Confirm", {1154.0F, kButtonY}, kConfirmButtonSize}
+        };
+
+        for (const BettingButtonLayout &buttonLayout: buttonLayouts) {
+            auto button = world.addGameObject(buttonLayout.name);
+            button.getComponent<cbit::ecs::TransformComponent>().position = buttonLayout.position;
+
+            auto &buttonComponent = button.addComponent<cbit::ecs::ButtonComponent>();
+            buttonComponent.size = buttonLayout.size;
+            buttonComponent.backgroundColor = {34, 45, 67, 255};
+            buttonComponent.hoverColor = {48, 64, 93, 255};
+            buttonComponent.pressedColor = {22, 31, 46, 255};
+            buttonComponent.borderColor = {231, 207, 115, 255};
+            buttonComponent.onClick = []() {
+            };
+
+            auto &buttonText = button.addComponent<cbit::ecs::TextComponent>();
+            buttonText.content = buttonLayout.label;
+            buttonText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
+            buttonText.fontSize = 16.0F;
+            buttonText.color = {255, 255, 255, 255};
         }
     }
 
