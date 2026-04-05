@@ -11,8 +11,10 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <sstream>
 #include <utility>
+#include <SDL3/SDL_init.h>
 #include <entt/entity/registry.hpp>
 #include "cbit/core/input.hpp"
 #include "cbit/core/logger.hpp"
@@ -61,6 +63,13 @@ namespace shark_card_game::scenes {
     }
 
     /**
+     * @brief Cleans up play-scene owned resources.
+     */
+    PlayScene::~PlayScene() {
+        shutdownDealAudio();
+    }
+
+    /**
      * @brief Initializes the play scene entities.
      */
     void PlayScene::initialize() {
@@ -105,6 +114,7 @@ namespace shark_card_game::scenes {
         menuButtonText.fontSize = 20.0F;
         menuButtonText.color = {255, 255, 255, 255};
 
+        initializeDealAudio();
         createMatchHud();
         createBoardSlots();
         createDeck();
@@ -367,12 +377,27 @@ namespace shark_card_game::scenes {
             };
         }
 
-        for (const PreparedDealStep &preparedStep: preparedSteps) {
-            _dealSteps.push_back(DealStep{preparedStep.handCardId, preparedStep.handSlotId});
+        const std::vector<int> clockwiseSeatOrder{1, 3, 0, 2};
+        for (const int seatIndex: clockwiseSeatOrder) {
+            if (seatIndex >= static_cast<int>(preparedSteps.size())) {
+                continue;
+            }
+
+            const PreparedDealStep &preparedStep = preparedSteps[seatIndex];
+            if (preparedStep.handCardId != 0 && preparedStep.handSlotId != 0) {
+                _dealSteps.push_back(DealStep{preparedStep.handCardId, preparedStep.handSlotId});
+            }
         }
 
-        for (const PreparedDealStep &preparedStep: preparedSteps) {
-            _dealSteps.push_back(DealStep{preparedStep.headCardId, preparedStep.headSlotId});
+        for (const int seatIndex: clockwiseSeatOrder) {
+            if (seatIndex >= static_cast<int>(preparedSteps.size())) {
+                continue;
+            }
+
+            const PreparedDealStep &preparedStep = preparedSteps[seatIndex];
+            if (preparedStep.headCardId != 0 && preparedStep.headSlotId != 0) {
+                _dealSteps.push_back(DealStep{preparedStep.headCardId, preparedStep.headSlotId});
+            }
         }
     }
 
@@ -403,6 +428,8 @@ namespace shark_card_game::scenes {
             transform.position = _activeDealAnimation.startPosition
                                  + ((_activeDealAnimation.targetPosition - _activeDealAnimation.startPosition)
                                     * easedTime);
+            transform.position.y -= std::sin(std::numbers::pi_v<float> * std::clamp(normalizedTime, 0.0F, 1.0F))
+                                    * _dealArcHeight;
 
             if (normalizedTime >= 1.0F) {
                 placeCardInSlot(_activeDealAnimation.cardId, _activeDealAnimation.slotId);
@@ -456,6 +483,7 @@ namespace shark_card_game::scenes {
         cardSprite.sourcePosition = kCardBackSourcePosition;
         dragable.enabled = false;
         dragable.isDragging = false;
+        playDealSound();
 
         _activeDealAnimation.cardId = step.cardId;
         _activeDealAnimation.slotId = step.slotId;
@@ -596,6 +624,86 @@ namespace shark_card_game::scenes {
 
         auto &dragable = card.addComponent<cbit::ecs::DragableComponent>();
         dragable.enabled = false;
+    }
+
+    /**
+     * @brief Initializes the lightweight audio stream used for deal ticks.
+     */
+    void PlayScene::initializeDealAudio() {
+        if (_dealAudioStream != nullptr) {
+            return;
+        }
+
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+            cbit2d::core::Logger::error("SharkCardGame could not initialize SDL audio subsystem: {}", SDL_GetError());
+            return;
+        }
+
+        const SDL_AudioSpec audioSpec{
+            SDL_AUDIO_F32,
+            1,
+            48000
+        };
+
+        _dealAudioStream = SDL_OpenAudioDeviceStream(
+            SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+            &audioSpec,
+            nullptr,
+            nullptr);
+        if (_dealAudioStream == nullptr) {
+            cbit2d::core::Logger::error("SharkCardGame could not open deal audio stream: {}", SDL_GetError());
+            return;
+        }
+
+        SDL_SetAudioStreamGain(_dealAudioStream, 0.18F);
+        if (!SDL_ResumeAudioStreamDevice(_dealAudioStream)) {
+            cbit2d::core::Logger::error("SharkCardGame could not resume deal audio stream: {}", SDL_GetError());
+            SDL_DestroyAudioStream(_dealAudioStream);
+            _dealAudioStream = nullptr;
+            return;
+        }
+
+        constexpr int kSampleRate = 48000;
+        constexpr float kDurationSeconds = 0.045F;
+        constexpr float kFrequencyHz = 980.0F;
+        const int sampleCount = static_cast<int>(kSampleRate * kDurationSeconds);
+
+        _dealSoundBuffer.resize(static_cast<std::size_t>(sampleCount));
+        for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+            const float time = static_cast<float>(sampleIndex) / static_cast<float>(kSampleRate);
+            const float envelope = 1.0F - (static_cast<float>(sampleIndex) / static_cast<float>(sampleCount));
+            _dealSoundBuffer[static_cast<std::size_t>(sampleIndex)] =
+                std::sin(2.0F * std::numbers::pi_v<float> * kFrequencyHz * time) * envelope;
+        }
+    }
+
+    /**
+     * @brief Releases the lightweight audio stream used for deal ticks.
+     */
+    void PlayScene::shutdownDealAudio() {
+        if (_dealAudioStream == nullptr) {
+            return;
+        }
+
+        SDL_DestroyAudioStream(_dealAudioStream);
+        _dealAudioStream = nullptr;
+    }
+
+    /**
+     * @brief Plays one short procedural deal tick.
+     */
+    void PlayScene::playDealSound() {
+        if (_dealAudioStream == nullptr || _dealSoundBuffer.empty()) {
+            return;
+        }
+
+        SDL_ClearAudioStream(_dealAudioStream);
+        if (!SDL_PutAudioStreamData(
+            _dealAudioStream,
+            _dealSoundBuffer.data(),
+            static_cast<int>(_dealSoundBuffer.size() * sizeof(float)))) {
+            cbit2d::core::Logger::error("SharkCardGame could not queue deal audio data: {}", SDL_GetError());
+        }
     }
 
     /**

@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_audio.h>
 #include <glm/vec2.hpp>
 
 #include "cbit/core/scene.hpp"
@@ -32,6 +33,11 @@ public:
      * @param onReturnToMenu Callback invoked when the menu button is pressed.
      */
     explicit PlayScene(std::function<void()> onReturnToMenu);
+
+    /**
+     * @brief Cleans up play-scene owned resources.
+     */
+    ~PlayScene() override;
 
     /**
      * @brief Initializes the play scene entities.
@@ -85,6 +91,21 @@ private:
     void beginNextDealStep();
 
     /**
+     * @brief Initializes the lightweight audio stream used for deal ticks.
+     */
+    void initializeDealAudio();
+
+    /**
+     * @brief Releases the lightweight audio stream used for deal ticks.
+     */
+    void shutdownDealAudio();
+
+    /**
+     * @brief Plays one short procedural deal tick.
+     */
+    void playDealSound();
+
+    /**
      * @brief Places one card entity into a specific slot and applies visibility.
      * @param cardId Card entity to place.
      * @param slotId Target slot entity.
@@ -129,7 +150,10 @@ private:
     float _dealStepDelaySeconds = 0.08F;
     float _dealStepDelayRemainingSeconds = 0.0F;
     float _dealTravelDurationSeconds = 0.22F;
+    float _dealArcHeight = 28.0F;
     ActiveDealAnimation _activeDealAnimation;
+    SDL_AudioStream *_dealAudioStream = nullptr;
+    std::vector<float> _dealSoundBuffer;
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
