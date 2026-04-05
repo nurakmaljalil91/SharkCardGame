@@ -97,6 +97,7 @@ struct PlayerState {
     PlayerControlMode controlMode = PlayerControlMode::Human;
     int coins = 100;
     int currentBet = 0;
+    bool hasBetThisRound = false;
     bool declinedBet = false;
     bool headCardRevealedToOwner = false;
     std::optional<CardInstance> handCard;
@@ -109,6 +110,9 @@ struct PlayerState {
 struct RoundState {
     int roundNumber = 1;
     MatchPhase phase = MatchPhase::Deal;
+    int pot = 0;
+    int activePlayerSeatIndex = 0;
+    int playersActedCount = 0;
     std::vector<CardInstance> shuffledDeck;
     std::size_t nextDrawIndex = 0;
 };

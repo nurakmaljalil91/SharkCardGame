@@ -132,6 +132,7 @@ namespace shark_card_game::scenes {
         createBoardSlots();
         createDeck();
         dealOpeningCards();
+        refreshBettingPanel();
         refreshMatchHud();
 
         world.addSystem([](cbit::ecs::EntityComponentSystem &ecs) {
@@ -231,6 +232,8 @@ namespace shark_card_game::scenes {
     void PlayScene::update(float deltaTimeSeconds) {
         _deltaTimeSeconds = deltaTimeSeconds;
         updateDealAnimation(deltaTimeSeconds);
+        updateBettingPhase(deltaTimeSeconds);
+        refreshBettingPanel();
         refreshMatchHud();
         world.update(deltaTimeSeconds);
     }
@@ -359,6 +362,12 @@ namespace shark_card_game::scenes {
         _dealSteps.reserve(requiredCards);
         _nextDealStepIndex = 0;
         _isDealing = true;
+        _matchState.round.phase = gameplay::MatchPhase::Deal;
+        _matchState.round.pot = 0;
+        _matchState.round.playersActedCount = 0;
+        _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+        _selectedBetAmount = 0;
+        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
         _dealStepDelayRemainingSeconds = 0.0F;
         _activeDealAnimation.cardId = 0;
         _activeDealAnimation.slotId = 0;
@@ -383,6 +392,9 @@ namespace shark_card_game::scenes {
 
             player.handCard = _matchState.round.shuffledDeck[handCardIndex];
             player.headCard = _matchState.round.shuffledDeck[headCardIndex];
+            player.currentBet = 0;
+            player.hasBetThisRound = false;
+            player.declinedBet = false;
             player.headCardRevealedToOwner = false;
 
             preparedSteps[playerIndex] = PreparedDealStep{
@@ -460,6 +472,9 @@ namespace shark_card_game::scenes {
 
         if (_nextDealStepIndex >= _dealSteps.size()) {
             _isDealing = false;
+            _matchState.round.phase = gameplay::MatchPhase::Betting;
+            _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+            _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
             return;
         }
 
@@ -571,6 +586,8 @@ namespace shark_card_game::scenes {
             text.content = "Round: " + std::to_string(_matchState.round.roundNumber)
                            + "/" + std::to_string(_matchState.maxRounds)
                            + "  Players: " + std::to_string(_matchState.playerCount)
+                           + "  Pot: " + std::to_string(_matchState.round.pot)
+                           + "  Active: " + _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)].displayName
                            + "  Undealt Cards: " + std::to_string(
                                _matchState.round.shuffledDeck.size() - _matchState.round.nextDrawIndex);
         }
@@ -586,6 +603,12 @@ namespace shark_card_game::scenes {
                         << "  Head: " << (player.headCardRevealedToOwner && player.headCard
                                               ? player.headCard->definition.name
                                               : "hidden");
+                if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
+                    builder << "  Status: "
+                            << (_matchState.round.activePlayerSeatIndex == 0
+                                    ? "Your Turn"
+                                    : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
+                }
                 localPlayerStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
         }
@@ -604,6 +627,12 @@ namespace shark_card_game::scenes {
                         << "  Bet: " << player.currentBet
                         << "  Hand: " << (player.handCard ? "hidden" : "none")
                         << "  Head: " << (player.headCard ? player.headCard->definition.name : "none");
+                if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
+                    builder << "  Status: "
+                            << (_matchState.round.activePlayerSeatIndex == static_cast<int>(playerIndex)
+                                    ? "Thinking"
+                                    : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
+                }
                 opponentStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
             }
         }
@@ -621,6 +650,7 @@ namespace shark_card_game::scenes {
 
         auto panel = world.addGameObject("BettingPanel");
         panel.getComponent<cbit::ecs::TransformComponent>().position = kPanelPosition;
+        _bettingPanelId = panel.getComponent<cbit::ecs::IdComponent>().id;
 
         auto &panelButton = panel.addComponent<cbit::ecs::ButtonComponent>();
         panelButton.size = kPanelSize;
@@ -628,8 +658,6 @@ namespace shark_card_game::scenes {
         panelButton.hoverColor = {16, 25, 40, 230};
         panelButton.pressedColor = {16, 25, 40, 230};
         panelButton.borderColor = {86, 110, 145, 255};
-        panelButton.onClick = []() {
-        };
 
         auto &panelText = panel.addComponent<cbit::ecs::TextComponent>();
         panelText.content = "Betting Phase";
@@ -639,6 +667,7 @@ namespace shark_card_game::scenes {
 
         auto summary = world.addGameObject("BettingPanelSummary");
         summary.getComponent<cbit::ecs::TransformComponent>().position = {1032.0F, 581.0F};
+        _bettingSummaryTextId = summary.getComponent<cbit::ecs::IdComponent>().id;
 
         auto &summaryText = summary.addComponent<cbit::ecs::TextComponent>();
         summaryText.content = "Your turn  Pot: 0  Coins: 100";
@@ -664,6 +693,7 @@ namespace shark_card_game::scenes {
         for (const BettingButtonLayout &buttonLayout: buttonLayouts) {
             auto button = world.addGameObject(buttonLayout.name);
             button.getComponent<cbit::ecs::TransformComponent>().position = buttonLayout.position;
+            const auto buttonId = button.getComponent<cbit::ecs::IdComponent>().id;
 
             auto &buttonComponent = button.addComponent<cbit::ecs::ButtonComponent>();
             buttonComponent.size = buttonLayout.size;
@@ -671,8 +701,22 @@ namespace shark_card_game::scenes {
             buttonComponent.hoverColor = {48, 64, 93, 255};
             buttonComponent.pressedColor = {22, 31, 46, 255};
             buttonComponent.borderColor = {231, 207, 115, 255};
-            buttonComponent.onClick = []() {
-            };
+            if (std::string_view(buttonLayout.name) == "BetPassButton") {
+                _betPassButtonId = buttonId;
+                buttonComponent.onClick = [this]() { selectBetOption(-1); };
+            } else if (std::string_view(buttonLayout.name) == "BetFiveButton") {
+                _betFiveButtonId = buttonId;
+                buttonComponent.onClick = [this]() { selectBetOption(5); };
+            } else if (std::string_view(buttonLayout.name) == "BetTenButton") {
+                _betTenButtonId = buttonId;
+                buttonComponent.onClick = [this]() { selectBetOption(10); };
+            } else if (std::string_view(buttonLayout.name) == "BetTwentyButton") {
+                _betTwentyButtonId = buttonId;
+                buttonComponent.onClick = [this]() { selectBetOption(20); };
+            } else if (std::string_view(buttonLayout.name) == "BetConfirmButton") {
+                _betConfirmButtonId = buttonId;
+                buttonComponent.onClick = [this]() { confirmLocalPlayerBet(); };
+            }
 
             auto &buttonText = button.addComponent<cbit::ecs::TextComponent>();
             buttonText.content = buttonLayout.label;
@@ -680,6 +724,177 @@ namespace shark_card_game::scenes {
             buttonText.fontSize = 16.0F;
             buttonText.color = {255, 255, 255, 255};
         }
+    }
+
+    /**
+     * @brief Refreshes betting panel text, styling, and button state.
+     */
+    void PlayScene::refreshBettingPanel() {
+        const bool bettingActive = !_isDealing && _matchState.round.phase == gameplay::MatchPhase::Betting;
+        const bool localPlayersTurn = bettingActive
+                                      && _matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex;
+
+        if (auto panel = world.getGameObject(_bettingPanelId)) {
+            auto &button = panel.getComponent<cbit::ecs::ButtonComponent>();
+            button.backgroundColor = bettingActive ? SDL_Color{16, 25, 40, 230} : SDL_Color{12, 18, 28, 180};
+            button.hoverColor = button.backgroundColor;
+            button.pressedColor = button.backgroundColor;
+        }
+
+        if (auto summary = world.getGameObject(_bettingSummaryTextId)) {
+            auto &text = summary.getComponent<cbit::ecs::TextComponent>();
+            if (_isDealing) {
+                text.content = "Dealing cards...";
+            } else if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
+                const auto &activePlayer = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
+                const std::string selection = _selectedBetAmount < 0
+                    ? "Pass"
+                    : (_selectedBetAmount > 0 ? std::to_string(_selectedBetAmount) : "None");
+                text.content = (localPlayersTurn ? "Your turn" : activePlayer.displayName + " thinking")
+                               + std::string("  Pot: ") + std::to_string(_matchState.round.pot)
+                               + "  Select: " + selection;
+            } else if (_matchState.round.phase == gameplay::MatchPhase::Reveal) {
+                text.content = "Betting locked  Pot: " + std::to_string(_matchState.round.pot);
+            } else {
+                text.content = "Waiting for betting phase";
+            }
+        }
+
+        const auto updateBetButton = [this, localPlayersTurn](const cbit::ecs::GameObjectId buttonId, const int amount) {
+            if (auto buttonObject = world.getGameObject(buttonId)) {
+                auto &button = buttonObject.getComponent<cbit::ecs::ButtonComponent>();
+                const bool isSelected = _selectedBetAmount == amount;
+                const SDL_Color baseColor = localPlayersTurn ? SDL_Color{34, 45, 67, 255} : SDL_Color{24, 31, 46, 255};
+                const SDL_Color selectedColor{93, 71, 28, 255};
+                button.backgroundColor = isSelected ? selectedColor : baseColor;
+                button.hoverColor = isSelected ? SDL_Color{114, 87, 34, 255} : SDL_Color{48, 64, 93, 255};
+                button.pressedColor = isSelected ? SDL_Color{80, 61, 24, 255} : SDL_Color{22, 31, 46, 255};
+                button.borderColor = localPlayersTurn ? SDL_Color{231, 207, 115, 255} : SDL_Color{92, 101, 118, 255};
+                if (!localPlayersTurn && amount != 0) {
+                    button.hoverColor = baseColor;
+                    button.pressedColor = baseColor;
+                }
+            }
+        };
+
+        updateBetButton(_betPassButtonId, -1);
+        updateBetButton(_betFiveButtonId, 5);
+        updateBetButton(_betTenButtonId, 10);
+        updateBetButton(_betTwentyButtonId, 20);
+
+        if (auto confirmButton = world.getGameObject(_betConfirmButtonId)) {
+            auto &button = confirmButton.getComponent<cbit::ecs::ButtonComponent>();
+            const bool canConfirm = localPlayersTurn && _selectedBetAmount != 0;
+            button.backgroundColor = canConfirm ? SDL_Color{34, 45, 67, 255} : SDL_Color{24, 31, 46, 255};
+            button.hoverColor = canConfirm ? SDL_Color{48, 64, 93, 255} : SDL_Color{24, 31, 46, 255};
+            button.pressedColor = canConfirm ? SDL_Color{22, 31, 46, 255} : SDL_Color{24, 31, 46, 255};
+            button.borderColor = canConfirm ? SDL_Color{231, 207, 115, 255} : SDL_Color{92, 101, 118, 255};
+        }
+    }
+
+    /**
+     * @brief Advances simple NPC betting turns.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void PlayScene::updateBettingPhase(const float deltaTimeSeconds) {
+        if (_isDealing || _matchState.round.phase != gameplay::MatchPhase::Betting) {
+            return;
+        }
+
+        if (_matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex) {
+            return;
+        }
+
+        _npcBetDelayRemainingSeconds -= deltaTimeSeconds;
+        if (_npcBetDelayRemainingSeconds > 0.0F) {
+            return;
+        }
+
+        const auto &activePlayer = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
+        const int handValue = activePlayer.handCard ? activePlayer.handCard->definition.scoreValue : 0;
+        int desiredBet = 0;
+        if (handValue >= 11) {
+            desiredBet = 20;
+        } else if (handValue >= 7) {
+            desiredBet = 10;
+        } else if (handValue >= 4) {
+            desiredBet = 5;
+        }
+
+        commitBetForActivePlayer(desiredBet);
+    }
+
+    /**
+     * @brief Selects one local-player betting option.
+     * @param amount Selected bet amount, or `-1` for pass.
+     */
+    void PlayScene::selectBetOption(const int amount) {
+        if (_isDealing
+            || _matchState.round.phase != gameplay::MatchPhase::Betting
+            || _matchState.round.activePlayerSeatIndex != _matchState.localPlayerSeatIndex) {
+            return;
+        }
+
+        _selectedBetAmount = amount;
+    }
+
+    /**
+     * @brief Commits the local player's currently selected betting choice.
+     */
+    void PlayScene::confirmLocalPlayerBet() {
+        if (_selectedBetAmount == 0) {
+            return;
+        }
+
+        if (_matchState.round.activePlayerSeatIndex != _matchState.localPlayerSeatIndex) {
+            return;
+        }
+
+        commitBetForActivePlayer(_selectedBetAmount < 0 ? 0 : _selectedBetAmount);
+    }
+
+    /**
+     * @brief Applies one betting decision to the current active player.
+     * @param amount Bet amount, or `0` to pass.
+     */
+    void PlayScene::commitBetForActivePlayer(const int amount) {
+        if (_matchState.round.phase != gameplay::MatchPhase::Betting) {
+            return;
+        }
+
+        auto &player = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
+        const int committedBet = std::clamp(amount, 0, player.coins);
+
+        player.hasBetThisRound = true;
+        player.currentBet = committedBet;
+        player.declinedBet = committedBet == 0;
+
+        _matchState.round.pot = 0;
+        for (const auto &roundPlayer: _matchState.players) {
+            _matchState.round.pot += roundPlayer.currentBet;
+        }
+
+        if (_matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex) {
+            _selectedBetAmount = 0;
+        }
+
+        ++_matchState.round.playersActedCount;
+        advanceBettingTurn();
+    }
+
+    /**
+     * @brief Advances betting to the next player or phase.
+     */
+    void PlayScene::advanceBettingTurn() {
+        if (_matchState.round.playersActedCount >= static_cast<int>(_matchState.players.size())) {
+            _matchState.round.phase = gameplay::MatchPhase::Reveal;
+            _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
+            return;
+        }
+
+        _matchState.round.activePlayerSeatIndex =
+            (_matchState.round.activePlayerSeatIndex + 1) % static_cast<int>(_matchState.players.size());
+        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
     }
 
     /**

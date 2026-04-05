@@ -102,6 +102,39 @@ private:
     void createBettingPanel();
 
     /**
+     * @brief Refreshes betting panel text, styling, and button state.
+     */
+    void refreshBettingPanel();
+
+    /**
+     * @brief Advances simple NPC betting turns.
+     * @param deltaTimeSeconds Elapsed time since the previous frame.
+     */
+    void updateBettingPhase(float deltaTimeSeconds);
+
+    /**
+     * @brief Selects one local-player betting option.
+     * @param amount Selected bet amount, or `-1` for pass.
+     */
+    void selectBetOption(int amount);
+
+    /**
+     * @brief Commits the local player's currently selected betting choice.
+     */
+    void confirmLocalPlayerBet();
+
+    /**
+     * @brief Applies one betting decision to the current active player.
+     * @param amount Bet amount, or `0` to pass.
+     */
+    void commitBetForActivePlayer(int amount);
+
+    /**
+     * @brief Advances betting to the next player or phase.
+     */
+    void advanceBettingTurn();
+
+    /**
      * @brief Refreshes the HUD text from the current match state.
      */
     void refreshMatchHud();
@@ -135,11 +168,21 @@ private:
     float _dealStepDelayRemainingSeconds = 0.0F;
     float _dealTravelDurationSeconds = 0.22F;
     float _dealArcHeight = 28.0F;
+    float _npcBetDelaySeconds = 0.7F;
+    float _npcBetDelayRemainingSeconds = 0.0F;
     ActiveDealAnimation _activeDealAnimation;
     std::vector<float> _dealSoundBuffer;
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
+    cbit::ecs::GameObjectId _bettingPanelId = 0;
+    cbit::ecs::GameObjectId _bettingSummaryTextId = 0;
+    cbit::ecs::GameObjectId _betPassButtonId = 0;
+    cbit::ecs::GameObjectId _betFiveButtonId = 0;
+    cbit::ecs::GameObjectId _betTenButtonId = 0;
+    cbit::ecs::GameObjectId _betTwentyButtonId = 0;
+    cbit::ecs::GameObjectId _betConfirmButtonId = 0;
+    int _selectedBetAmount = 0;
     std::vector<cbit::ecs::GameObjectId> _opponentStatusTextIds;
 };
 
