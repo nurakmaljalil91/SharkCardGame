@@ -25,6 +25,7 @@ add_executable(
     src/scenes/menu_scene.cpp
     src/scenes/play_scene.cpp
     src/scenes/play_scene_ui.cpp
+    src/scenes/round_flow_controller.cpp
     src/scenes/table_layout.cpp
 )
 

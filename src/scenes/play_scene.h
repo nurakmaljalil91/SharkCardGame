@@ -21,6 +21,7 @@
 #include "../gameplay/match_rules.h"
 #include "../components/components.h"
 #include "play_scene_ui.h"
+#include "round_flow_controller.h"
 
 namespace shark_card_game::scenes {
 
@@ -218,18 +219,10 @@ private:
     float _dealStepDelayRemainingSeconds = 0.0F;
     float _dealTravelDurationSeconds = 0.22F;
     float _dealArcHeight = 28.0F;
-    float _npcBetDelaySeconds = 0.7F;
-    float _npcBetDelayRemainingSeconds = 0.0F;
-    float _revealDelaySeconds = 1.0F;
-    float _revealDelayRemainingSeconds = 0.0F;
-    float _roundResolutionDelaySeconds = 2.0F;
-    float _roundResolutionDelayRemainingSeconds = 0.0F;
-    bool _roundResolved = false;
-    int _winningTotal = 0;
     ActiveDealAnimation _activeDealAnimation;
     PlaySceneUi _ui;
+    RoundFlowController _roundFlow;
     std::vector<float> _dealSoundBuffer;
-    std::string _roundResultSummary;
     cbit::ecs::GameObjectId _phaseTextId = 0;
     cbit::ecs::GameObjectId _roundTextId = 0;
     cbit::ecs::GameObjectId _localPlayerStatusTextId = 0;
@@ -244,7 +237,6 @@ private:
     cbit::ecs::GameObjectId _matchFinishedSummaryTextId = 0;
     cbit::ecs::GameObjectId _newGameButtonId = 0;
     int _selectedBetAmount = 0;
-    std::vector<int> _winningSeatIndices;
     std::vector<cbit::ecs::GameObjectId> _opponentStatusTextIds;
 };
 

@@ -317,18 +317,8 @@ namespace shark_card_game::scenes {
         _dealSteps.reserve(requiredCards);
         _nextDealStepIndex = 0;
         _isDealing = true;
-        _matchState.round.phase = gameplay::MatchPhase::Deal;
-        _matchState.round.pot = 0;
-        _matchState.round.playersActedCount = 0;
-        _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
         _selectedBetAmount = 0;
-        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
-        _revealDelayRemainingSeconds = _revealDelaySeconds;
-        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
-        _roundResolved = false;
-        _winningTotal = 0;
-        _winningSeatIndices.clear();
-        _roundResultSummary.clear();
+        _roundFlow.beginDeal(_matchState);
         _dealStepDelayRemainingSeconds = 0.0F;
         _activeDealAnimation.cardId = 0;
         _activeDealAnimation.slotId = 0;
@@ -435,9 +425,7 @@ namespace shark_card_game::scenes {
 
         if (_nextDealStepIndex >= _dealSteps.size()) {
             _isDealing = false;
-            _matchState.round.phase = gameplay::MatchPhase::Betting;
-            _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
-            _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
+            _roundFlow.onDealFinished(_matchState);
             return;
         }
 
@@ -510,8 +498,8 @@ namespace shark_card_game::scenes {
             _matchState,
             _isDealing,
             _selectedBetAmount,
-            _winningSeatIndices,
-            _roundResultSummary
+            _roundFlow.getWinningSeatIndices(),
+            _roundFlow.getRoundResultSummary()
         });
     }
 
@@ -535,8 +523,8 @@ namespace shark_card_game::scenes {
             _matchState,
             _isDealing,
             _selectedBetAmount,
-            _winningSeatIndices,
-            _roundResultSummary
+            _roundFlow.getWinningSeatIndices(),
+            _roundFlow.getRoundResultSummary()
         });
     }
 
@@ -551,31 +539,14 @@ namespace shark_card_game::scenes {
      * @param deltaTimeSeconds Elapsed time since the previous frame.
      */
     void PlayScene::updateBettingPhase(const float deltaTimeSeconds) {
-        if (_isDealing || _matchState.round.phase != gameplay::MatchPhase::Betting) {
+        if (_isDealing) {
             return;
         }
 
-        if (_matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex) {
-            return;
+        const RoundFlowAction action = _roundFlow.updateBetting(_matchState, deltaTimeSeconds);
+        if (action.type == RoundFlowAction::Type::CommitBet) {
+            commitBetForActivePlayer(action.amount);
         }
-
-        _npcBetDelayRemainingSeconds -= deltaTimeSeconds;
-        if (_npcBetDelayRemainingSeconds > 0.0F) {
-            return;
-        }
-
-        const auto &activePlayer = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
-        const int handValue = activePlayer.handCard ? activePlayer.handCard->definition.scoreValue : 0;
-        int desiredBet = 0;
-        if (handValue >= 11) {
-            desiredBet = 20;
-        } else if (handValue >= 7) {
-            desiredBet = 10;
-        } else if (handValue >= 4) {
-            desiredBet = 5;
-        }
-
-        commitBetForActivePlayer(desiredBet);
     }
 
     /**
@@ -631,17 +602,13 @@ namespace shark_card_game::scenes {
      */
     void PlayScene::advanceBettingTurn() {
         if (_matchState.round.playersActedCount >= static_cast<int>(_matchState.players.size())) {
-            _matchState.round.phase = gameplay::MatchPhase::Reveal;
-            _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
-            _revealDelayRemainingSeconds = _revealDelaySeconds;
-            _roundResolved = false;
+            _roundFlow.beginReveal(_matchState);
             revealAllHeadCards();
             return;
         }
 
         _matchState.round.activePlayerSeatIndex =
             (_matchState.round.activePlayerSeatIndex + 1) % static_cast<int>(_matchState.players.size());
-        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
     }
 
     /**
@@ -649,19 +616,11 @@ namespace shark_card_game::scenes {
      * @param deltaTimeSeconds Elapsed time since the previous frame.
      */
     void PlayScene::updateRevealAndResolution(const float deltaTimeSeconds) {
-        if (_matchState.round.phase == gameplay::MatchPhase::Reveal && !_roundResolved) {
-            _revealDelayRemainingSeconds -= deltaTimeSeconds;
-            if (_revealDelayRemainingSeconds <= 0.0F) {
-                resolveRoundResult();
-            }
-            return;
-        }
-
-        if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution && _roundResolved) {
-            _roundResolutionDelayRemainingSeconds -= deltaTimeSeconds;
-            if (_roundResolutionDelayRemainingSeconds <= 0.0F) {
-                advanceRoundFlow();
-            }
+        const RoundFlowAction action = _roundFlow.updateRevealAndResolution(_matchState, deltaTimeSeconds);
+        if (action.type == RoundFlowAction::Type::ResolveRound) {
+            resolveRoundResult();
+        } else if (action.type == RoundFlowAction::Type::AdvanceRound) {
+            advanceRoundFlow();
         }
     }
 
@@ -703,13 +662,8 @@ namespace shark_card_game::scenes {
      */
     void PlayScene::resolveRoundResult() {
         const gameplay::RoundResolution resolution = gameplay::resolveRound(_matchState);
-        _winningSeatIndices = resolution.winningSeatIndices;
-        _winningTotal = resolution.winningTotal;
-        _roundResultSummary = resolution.summary;
-
-        _roundResolved = true;
+        _roundFlow.applyRoundResolution(resolution);
         _matchState.round.phase = gameplay::MatchPhase::RoundResolution;
-        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
     }
 
     /**
@@ -739,34 +693,34 @@ namespace shark_card_game::scenes {
     void PlayScene::advanceRoundFlow() {
         if (_matchState.round.roundNumber >= _matchState.maxRounds) {
             int bestCoins = std::numeric_limits<int>::min();
-            _winningSeatIndices.clear();
+            std::vector<int> winningSeatIndices;
 
             for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
                 const int coins = _matchState.players[playerIndex].coins;
-                if (_winningSeatIndices.empty() || coins > bestCoins) {
-                    _winningSeatIndices = {static_cast<int>(playerIndex)};
+                if (winningSeatIndices.empty() || coins > bestCoins) {
+                    winningSeatIndices = {static_cast<int>(playerIndex)};
                     bestCoins = coins;
                 } else if (coins == bestCoins) {
-                    _winningSeatIndices.push_back(static_cast<int>(playerIndex));
+                    winningSeatIndices.push_back(static_cast<int>(playerIndex));
                 }
             }
 
             std::ostringstream builder;
-            if (_winningSeatIndices.size() == 1) {
-                builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices.front())].displayName
+            if (winningSeatIndices.size() == 1) {
+                builder << _matchState.players[static_cast<std::size_t>(winningSeatIndices.front())].displayName
                         << " wins the match with " << bestCoins << " coins";
             } else {
                 builder << "Match tied at " << bestCoins << " coins between ";
-                for (std::size_t winnerIndex = 0; winnerIndex < _winningSeatIndices.size(); ++winnerIndex) {
+                for (std::size_t winnerIndex = 0; winnerIndex < winningSeatIndices.size(); ++winnerIndex) {
                     if (winnerIndex > 0) {
                         builder << ", ";
                     }
 
-                    builder << _matchState.players[static_cast<std::size_t>(_winningSeatIndices[winnerIndex])].displayName;
+                    builder << _matchState.players[static_cast<std::size_t>(winningSeatIndices[winnerIndex])].displayName;
                 }
             }
 
-            _roundResultSummary = builder.str();
+            _roundFlow.applyMatchFinishedSummary(builder.str());
             _matchState.round.phase = gameplay::MatchPhase::MatchFinished;
             _matchState.round.activePlayerSeatIndex = _matchState.localPlayerSeatIndex;
             return;
@@ -798,13 +752,7 @@ namespace shark_card_game::scenes {
         _deckCardIds.clear();
         _matchState = gameplay::createInitialMatchState(_matchState.playerCount, _matchState.localPlayerSeatIndex);
         _selectedBetAmount = 0;
-        _npcBetDelayRemainingSeconds = _npcBetDelaySeconds;
-        _revealDelayRemainingSeconds = _revealDelaySeconds;
-        _roundResolutionDelayRemainingSeconds = _roundResolutionDelaySeconds;
-        _roundResolved = false;
-        _winningTotal = 0;
-        _winningSeatIndices.clear();
-        _roundResultSummary.clear();
+        _roundFlow.resetForNewMatch();
 
         createDeck();
         dealOpeningCards();
