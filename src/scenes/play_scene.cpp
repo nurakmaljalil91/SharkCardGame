@@ -490,382 +490,60 @@ namespace shark_card_game::scenes {
      * @brief Creates HUD text that reflects the current match state.
      */
     void PlayScene::createMatchHud() {
-        auto phaseText = world.addGameObject("PhaseInfoText");
-        phaseText.getComponent<cbit::ecs::TransformComponent>().position = {72.0F, 38.0F};
-        auto &phaseTextComponent = phaseText.addComponent<cbit::ecs::TextComponent>();
-        phaseTextComponent.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        phaseTextComponent.fontSize = 20.0F;
-        phaseTextComponent.color = {249, 214, 119, 255};
-        phaseTextComponent.centered = false;
-        _phaseTextId = phaseText.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto roundText = world.addGameObject("RoundInfoText");
-        roundText.getComponent<cbit::ecs::TransformComponent>().position = {72.0F, 64.0F};
-        auto &roundTextComponent = roundText.addComponent<cbit::ecs::TextComponent>();
-        roundTextComponent.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        roundTextComponent.fontSize = 16.0F;
-        roundTextComponent.color = {214, 228, 240, 255};
-        roundTextComponent.centered = false;
-        _roundTextId = roundText.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto localPlayerStatus = world.addGameObject("LocalPlayerStatusText");
-        localPlayerStatus.getComponent<cbit::ecs::TransformComponent>().position = {828.0F, 678.0F};
-        auto &localPlayerStatusText = localPlayerStatus.addComponent<cbit::ecs::TextComponent>();
-        localPlayerStatusText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        localPlayerStatusText.fontSize = 16.0F;
-        localPlayerStatusText.color = {235, 244, 255, 255};
-        localPlayerStatusText.centered = false;
-        _localPlayerStatusTextId = localPlayerStatus.getComponent<cbit::ecs::IdComponent>().id;
-
-        _opponentStatusTextIds.assign(_matchState.players.size(), 0);
-        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
-            if (static_cast<int>(playerIndex) == _matchState.localPlayerSeatIndex) {
-                continue;
-            }
-
-            auto opponentStatus = world.addGameObject(
-                "OpponentStatusText" + std::to_string(playerIndex));
-            opponentStatus.getComponent<cbit::ecs::TransformComponent>().position = {
-                820.0F,
-                168.0F + (static_cast<float>(playerIndex - 1) * 28.0F)
-            };
-
-            auto &opponentStatusText = opponentStatus.addComponent<cbit::ecs::TextComponent>();
-            opponentStatusText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-            opponentStatusText.fontSize = 16.0F;
-            opponentStatusText.color = {235, 244, 255, 255};
-            opponentStatusText.centered = false;
-            _opponentStatusTextIds[playerIndex] = opponentStatus.getComponent<cbit::ecs::IdComponent>().id;
-        }
+        _ui.create(
+            world,
+            _matchState,
+            [this]() { selectBetOption(-1); },
+            [this]() { selectBetOption(5); },
+            [this]() { selectBetOption(10); },
+            [this]() { selectBetOption(20); },
+            [this]() { confirmLocalPlayerBet(); },
+            [this]() { startNewGame(); }
+        );
     }
 
     /**
      * @brief Refreshes the HUD text from the current match state.
      */
     void PlayScene::refreshMatchHud() {
-        if (auto phaseText = world.getGameObject(_phaseTextId)) {
-            auto &text = phaseText.getComponent<cbit::ecs::TextComponent>();
-            text.content = std::string("Phase: ") + gameplay::toString(_matchState.round.phase);
-        }
-
-        if (auto roundText = world.getGameObject(_roundTextId)) {
-            auto &text = roundText.getComponent<cbit::ecs::TextComponent>();
-            text.content = "Round: " + std::to_string(_matchState.round.roundNumber)
-                           + "/" + std::to_string(_matchState.maxRounds)
-                           + "  Players: " + std::to_string(_matchState.playerCount)
-                           + "  Pot: " + std::to_string(_matchState.round.pot)
-                           + "  Active: " + _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)].displayName
-                           + "  Undealt Cards: " + std::to_string(
-                               _matchState.round.shuffledDeck.size() - _matchState.round.nextDrawIndex);
-        }
-
-        if (_matchState.players.size() > 0) {
-            if (auto localPlayerStatus = world.getGameObject(_localPlayerStatusTextId)) {
-                const int localSeatIndex = _matchState.localPlayerSeatIndex;
-                const auto &player = _matchState.players[static_cast<std::size_t>(localSeatIndex)];
-                std::ostringstream builder;
-                builder << player.displayName
-                        << "  Coins: " << player.coins
-                        << "  Bet: " << player.currentBet
-                        << "  Hand: " << (player.handCard ? player.handCard->definition.name : "none")
-                        << "  Head: " << (player.headCardRevealedToOwner && player.headCard
-                                              ? player.headCard->definition.name
-                                              : "hidden");
-                if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
-                    builder << "  Status: "
-                            << (_matchState.round.activePlayerSeatIndex == localSeatIndex
-                                    ? "Your Turn"
-                                    : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
-                } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
-                    builder << "  Total: "
-                            << gameplay::calculatePlayerTotal(player)
-                            << "  Status: "
-                            << (std::ranges::find(_winningSeatIndices, localSeatIndex) != _winningSeatIndices.end()
-                                    ? "Winner"
-                                    : "Lost");
-                }
-                localPlayerStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
-            }
-        }
-
-        for (std::size_t playerIndex = 0; playerIndex < _matchState.players.size(); ++playerIndex) {
-            if (static_cast<int>(playerIndex) == _matchState.localPlayerSeatIndex) {
-                continue;
-            }
-
-            if (playerIndex >= _opponentStatusTextIds.size()) {
-                continue;
-            }
-
-            if (auto opponentStatus = world.getGameObject(_opponentStatusTextIds[playerIndex])) {
-                const auto &player = _matchState.players[playerIndex];
-                std::ostringstream builder;
-                builder << player.displayName
-                        << "  Coins: " << player.coins
-                        << "  Bet: " << player.currentBet
-                        << "  Hand: " << (player.handCard ? "hidden" : "none")
-                        << "  Head: " << (player.headCard ? player.headCard->definition.name : "none");
-                if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
-                    builder << "  Status: "
-                            << (_matchState.round.activePlayerSeatIndex == static_cast<int>(playerIndex)
-                                    ? "Thinking"
-                                    : (player.hasBetThisRound ? (player.declinedBet ? "Passed" : "Locked") : "Waiting"));
-                } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
-                    builder << "  Total: "
-                            << gameplay::calculatePlayerTotal(player)
-                            << "  Status: "
-                            << (std::ranges::find(_winningSeatIndices, static_cast<int>(playerIndex)) != _winningSeatIndices.end()
-                                    ? "Winner"
-                                    : "Lost");
-                }
-                opponentStatus.getComponent<cbit::ecs::TextComponent>().content = builder.str();
-            }
-        }
+        _ui.refresh(world, PlaySceneUiModel{
+            _matchState,
+            _isDealing,
+            _selectedBetAmount,
+            _winningSeatIndices,
+            _roundResultSummary
+        });
     }
 
     /**
      * @brief Creates the placeholder betting panel for the upcoming betting phase.
      */
     void PlayScene::createBettingPanel() {
-        constexpr glm::vec2 kPanelPosition{1032.0F, 603.0F};
-        constexpr glm::vec2 kPanelSize{348.0F, 124.0F};
-        constexpr float kButtonY = 641.0F;
-        constexpr glm::vec2 kSmallButtonSize{56.0F, 42.0F};
-        constexpr glm::vec2 kConfirmButtonSize{86.0F, 42.0F};
-
-        auto panel = world.addGameObject("BettingPanel");
-        panel.getComponent<cbit::ecs::TransformComponent>().position = kPanelPosition;
-        _bettingPanelId = panel.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto &panelButton = panel.addComponent<cbit::ecs::ButtonComponent>();
-        panelButton.size = kPanelSize;
-        panelButton.backgroundColor = {16, 25, 40, 230};
-        panelButton.hoverColor = {16, 25, 40, 230};
-        panelButton.pressedColor = {16, 25, 40, 230};
-        panelButton.borderColor = {86, 110, 145, 255};
-
-        auto &panelText = panel.addComponent<cbit::ecs::TextComponent>();
-        panelText.content = "Betting Phase";
-        panelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        panelText.fontSize = 20.0F;
-        panelText.color = {249, 214, 119, 255};
-
-        auto summary = world.addGameObject("BettingPanelSummary");
-        summary.getComponent<cbit::ecs::TransformComponent>().position = {1032.0F, 581.0F};
-        _bettingSummaryTextId = summary.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto &summaryText = summary.addComponent<cbit::ecs::TextComponent>();
-        summaryText.content = "Your turn  Pot: 0  Coins: 100";
-        summaryText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        summaryText.fontSize = 14.0F;
-        summaryText.color = {214, 228, 240, 255};
-
-        struct BettingButtonLayout {
-            const char *name;
-            const char *label;
-            glm::vec2 position;
-            glm::vec2 size;
-        };
-
-        const std::vector<BettingButtonLayout> buttonLayouts{
-            {"BetPassButton", "Pass", {892.0F, kButtonY}, kSmallButtonSize},
-            {"BetFiveButton", "5", {954.0F, kButtonY}, kSmallButtonSize},
-            {"BetTenButton", "10", {1016.0F, kButtonY}, kSmallButtonSize},
-            {"BetTwentyButton", "20", {1078.0F, kButtonY}, kSmallButtonSize},
-            {"BetConfirmButton", "Confirm", {1154.0F, kButtonY}, kConfirmButtonSize}
-        };
-
-        for (const BettingButtonLayout &buttonLayout: buttonLayouts) {
-            auto button = world.addGameObject(buttonLayout.name);
-            button.getComponent<cbit::ecs::TransformComponent>().position = buttonLayout.position;
-            const auto buttonId = button.getComponent<cbit::ecs::IdComponent>().id;
-
-            auto &buttonComponent = button.addComponent<cbit::ecs::ButtonComponent>();
-            buttonComponent.size = buttonLayout.size;
-            buttonComponent.backgroundColor = {34, 45, 67, 255};
-            buttonComponent.hoverColor = {48, 64, 93, 255};
-            buttonComponent.pressedColor = {22, 31, 46, 255};
-            buttonComponent.borderColor = {231, 207, 115, 255};
-            if (std::string_view(buttonLayout.name) == "BetPassButton") {
-                _betPassButtonId = buttonId;
-                buttonComponent.onClick = [this]() { selectBetOption(-1); };
-            } else if (std::string_view(buttonLayout.name) == "BetFiveButton") {
-                _betFiveButtonId = buttonId;
-                buttonComponent.onClick = [this]() { selectBetOption(5); };
-            } else if (std::string_view(buttonLayout.name) == "BetTenButton") {
-                _betTenButtonId = buttonId;
-                buttonComponent.onClick = [this]() { selectBetOption(10); };
-            } else if (std::string_view(buttonLayout.name) == "BetTwentyButton") {
-                _betTwentyButtonId = buttonId;
-                buttonComponent.onClick = [this]() { selectBetOption(20); };
-            } else if (std::string_view(buttonLayout.name) == "BetConfirmButton") {
-                _betConfirmButtonId = buttonId;
-                buttonComponent.onClick = [this]() { confirmLocalPlayerBet(); };
-            }
-
-            auto &buttonText = button.addComponent<cbit::ecs::TextComponent>();
-            buttonText.content = buttonLayout.label;
-            buttonText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-            buttonText.fontSize = 16.0F;
-            buttonText.color = {255, 255, 255, 255};
-        }
     }
 
     /**
      * @brief Creates the centered match-finished overlay panel.
      */
     void PlayScene::createMatchFinishedPanel() {
-        auto panel = world.addGameObject("MatchFinishedPanel");
-        panel.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 360.0F};
-        _matchFinishedPanelId = panel.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto &panelButton = panel.addComponent<cbit::ecs::ButtonComponent>();
-        panelButton.size = {420.0F, 220.0F};
-        panelButton.backgroundColor = {10, 16, 28, 0};
-        panelButton.hoverColor = {10, 16, 28, 0};
-        panelButton.pressedColor = {10, 16, 28, 0};
-        panelButton.borderColor = {231, 207, 115, 0};
-
-        auto &panelText = panel.addComponent<cbit::ecs::TextComponent>();
-        panelText.content = " ";
-        panelText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        panelText.fontSize = 28.0F;
-        panelText.color = {249, 214, 119, 0};
-
-        auto summary = world.addGameObject("MatchFinishedSummary");
-        summary.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 360.0F};
-        _matchFinishedSummaryTextId = summary.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto &summaryText = summary.addComponent<cbit::ecs::TextComponent>();
-        summaryText.content = " ";
-        summaryText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        summaryText.fontSize = 18.0F;
-        summaryText.color = {235, 244, 255, 0};
-        summaryText.wrapWidth = 340;
-
-        auto newGameButton = world.addGameObject("NewGameButton");
-        newGameButton.getComponent<cbit::ecs::TransformComponent>().position = {640.0F, 430.0F};
-        _newGameButtonId = newGameButton.getComponent<cbit::ecs::IdComponent>().id;
-
-        auto &button = newGameButton.addComponent<cbit::ecs::ButtonComponent>();
-        button.size = {0.0F, 0.0F};
-        button.backgroundColor = {34, 45, 67, 0};
-        button.hoverColor = {48, 64, 93, 0};
-        button.pressedColor = {22, 31, 46, 0};
-        button.borderColor = {231, 207, 115, 0};
-        button.onClick = [this]() { startNewGame(); };
-
-        auto &buttonText = newGameButton.addComponent<cbit::ecs::TextComponent>();
-        buttonText.content = " ";
-        buttonText.fontPath = "resources/fonts/Kenney_Future_Narrow.ttf";
-        buttonText.fontSize = 24.0F;
-        buttonText.color = {255, 255, 255, 0};
     }
 
     /**
      * @brief Refreshes betting panel text, styling, and button state.
      */
     void PlayScene::refreshBettingPanel() {
-        const bool bettingActive = !_isDealing && _matchState.round.phase == gameplay::MatchPhase::Betting;
-        const bool localPlayersTurn = bettingActive
-                                      && _matchState.round.activePlayerSeatIndex == _matchState.localPlayerSeatIndex;
-
-        if (auto panel = world.getGameObject(_bettingPanelId)) {
-            auto &button = panel.getComponent<cbit::ecs::ButtonComponent>();
-            button.backgroundColor = bettingActive ? SDL_Color{16, 25, 40, 230} : SDL_Color{12, 18, 28, 180};
-            button.hoverColor = button.backgroundColor;
-            button.pressedColor = button.backgroundColor;
-        }
-
-        if (auto summary = world.getGameObject(_bettingSummaryTextId)) {
-            auto &text = summary.getComponent<cbit::ecs::TextComponent>();
-            if (_isDealing) {
-                text.content = "Dealing cards...";
-            } else if (_matchState.round.phase == gameplay::MatchPhase::Betting) {
-                const auto &activePlayer = _matchState.players[static_cast<std::size_t>(_matchState.round.activePlayerSeatIndex)];
-                const std::string selection = _selectedBetAmount < 0
-                    ? "Pass"
-                    : (_selectedBetAmount > 0 ? std::to_string(_selectedBetAmount) : "None");
-                text.content = (localPlayersTurn ? "Your turn" : activePlayer.displayName + " thinking")
-                               + std::string("  Pot: ") + std::to_string(_matchState.round.pot)
-                               + "  Select: " + selection;
-            } else if (_matchState.round.phase == gameplay::MatchPhase::Reveal) {
-                text.content = "Revealing head cards...  Pot: " + std::to_string(_matchState.round.pot);
-            } else if (_matchState.round.phase == gameplay::MatchPhase::RoundResolution) {
-                text.content = _roundResultSummary.empty()
-                    ? "Resolving round..."
-                    : _roundResultSummary;
-            } else {
-                text.content = "Waiting for betting phase";
-            }
-        }
-
-        const auto updateBetButton = [this, localPlayersTurn](const cbit::ecs::GameObjectId buttonId, const int amount) {
-            if (auto buttonObject = world.getGameObject(buttonId)) {
-                auto &button = buttonObject.getComponent<cbit::ecs::ButtonComponent>();
-                const bool isSelected = _selectedBetAmount == amount;
-                const SDL_Color baseColor = localPlayersTurn ? SDL_Color{34, 45, 67, 255} : SDL_Color{24, 31, 46, 255};
-                const SDL_Color selectedColor{93, 71, 28, 255};
-                button.backgroundColor = isSelected ? selectedColor : baseColor;
-                button.hoverColor = isSelected ? SDL_Color{114, 87, 34, 255} : SDL_Color{48, 64, 93, 255};
-                button.pressedColor = isSelected ? SDL_Color{80, 61, 24, 255} : SDL_Color{22, 31, 46, 255};
-                button.borderColor = localPlayersTurn ? SDL_Color{231, 207, 115, 255} : SDL_Color{92, 101, 118, 255};
-                if (!localPlayersTurn && amount != 0) {
-                    button.hoverColor = baseColor;
-                    button.pressedColor = baseColor;
-                }
-            }
-        };
-
-        updateBetButton(_betPassButtonId, -1);
-        updateBetButton(_betFiveButtonId, 5);
-        updateBetButton(_betTenButtonId, 10);
-        updateBetButton(_betTwentyButtonId, 20);
-
-        if (auto confirmButton = world.getGameObject(_betConfirmButtonId)) {
-            auto &button = confirmButton.getComponent<cbit::ecs::ButtonComponent>();
-            const bool canConfirm = localPlayersTurn && _selectedBetAmount != 0;
-            button.backgroundColor = canConfirm ? SDL_Color{34, 45, 67, 255} : SDL_Color{24, 31, 46, 255};
-            button.hoverColor = canConfirm ? SDL_Color{48, 64, 93, 255} : SDL_Color{24, 31, 46, 255};
-            button.pressedColor = canConfirm ? SDL_Color{22, 31, 46, 255} : SDL_Color{24, 31, 46, 255};
-            button.borderColor = canConfirm ? SDL_Color{231, 207, 115, 255} : SDL_Color{92, 101, 118, 255};
-        }
+        _ui.refresh(world, PlaySceneUiModel{
+            _matchState,
+            _isDealing,
+            _selectedBetAmount,
+            _winningSeatIndices,
+            _roundResultSummary
+        });
     }
 
     /**
      * @brief Refreshes the match-finished overlay visibility and text.
      */
     void PlayScene::refreshMatchFinishedPanel() {
-        const bool showMatchFinished = _matchState.round.phase == gameplay::MatchPhase::MatchFinished;
-
-        if (auto panel = world.getGameObject(_matchFinishedPanelId)) {
-            auto &button = panel.getComponent<cbit::ecs::ButtonComponent>();
-            auto &text = panel.getComponent<cbit::ecs::TextComponent>();
-            button.backgroundColor = showMatchFinished ? SDL_Color{10, 16, 28, 230} : SDL_Color{10, 16, 28, 0};
-            button.hoverColor = button.backgroundColor;
-            button.pressedColor = button.backgroundColor;
-            button.borderColor = showMatchFinished ? SDL_Color{231, 207, 115, 255} : SDL_Color{231, 207, 115, 0};
-            text.content = showMatchFinished ? "Match Finished" : " ";
-            text.color = showMatchFinished ? SDL_Color{249, 214, 119, 255} : SDL_Color{249, 214, 119, 0};
-        }
-
-        if (auto summary = world.getGameObject(_matchFinishedSummaryTextId)) {
-            auto &text = summary.getComponent<cbit::ecs::TextComponent>();
-            text.content = showMatchFinished ? _roundResultSummary : " ";
-            text.color = showMatchFinished ? SDL_Color{235, 244, 255, 255} : SDL_Color{235, 244, 255, 0};
-        }
-
-        if (auto newGameButton = world.getGameObject(_newGameButtonId)) {
-            auto &button = newGameButton.getComponent<cbit::ecs::ButtonComponent>();
-            auto &text = newGameButton.getComponent<cbit::ecs::TextComponent>();
-            button.size = showMatchFinished ? glm::vec2{180.0F, 56.0F} : glm::vec2{0.0F, 0.0F};
-            button.backgroundColor = showMatchFinished ? SDL_Color{34, 45, 67, 255} : SDL_Color{34, 45, 67, 0};
-            button.hoverColor = showMatchFinished ? SDL_Color{48, 64, 93, 255} : SDL_Color{48, 64, 93, 0};
-            button.pressedColor = showMatchFinished ? SDL_Color{22, 31, 46, 255} : SDL_Color{22, 31, 46, 0};
-            button.borderColor = showMatchFinished ? SDL_Color{231, 207, 115, 255} : SDL_Color{231, 207, 115, 0};
-            text.content = showMatchFinished ? "New Game" : " ";
-            text.color = showMatchFinished ? SDL_Color{255, 255, 255, 255} : SDL_Color{255, 255, 255, 0};
-        }
     }
 
     /**

@@ -24,6 +24,7 @@ add_executable(
     src/gameplay/match_rules.cpp
     src/scenes/menu_scene.cpp
     src/scenes/play_scene.cpp
+    src/scenes/play_scene_ui.cpp
     src/scenes/table_layout.cpp
 )
 

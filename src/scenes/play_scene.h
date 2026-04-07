@@ -20,6 +20,7 @@
 #include "../gameplay/gameplay_state.h"
 #include "../gameplay/match_rules.h"
 #include "../components/components.h"
+#include "play_scene_ui.h"
 
 namespace shark_card_game::scenes {
 
@@ -226,6 +227,7 @@ private:
     bool _roundResolved = false;
     int _winningTotal = 0;
     ActiveDealAnimation _activeDealAnimation;
+    PlaySceneUi _ui;
     std::vector<float> _dealSoundBuffer;
     std::string _roundResultSummary;
     cbit::ecs::GameObjectId _phaseTextId = 0;
