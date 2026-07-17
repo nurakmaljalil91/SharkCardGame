@@ -7,3 +7,5 @@ logs
 
 vendors
 vcpkg_installed
+
+compile_commands.json

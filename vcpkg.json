@@ -8,10 +8,16 @@
       "version>=": "1.17.0"
     },
     {
-      "name": "sdl3", 
-      "version>=" : "3.4.2#1",
-      "default-features" : false,
-      "features" : [ "wayland", "x11" ]
+      "name": "sdl3",
+      "version>=": "3.4.2#1",
+      "default-features": false,
+      "features": ["wayland", "x11"],
+      "platform": "linux"
+    },
+    {
+      "name": "sdl3",
+      "version>=": "3.4.2#1",
+      "platform": "!linux"
     },
     {
       "name": "sdl3-image",
