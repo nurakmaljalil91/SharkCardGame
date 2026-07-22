@@ -32,7 +32,7 @@ add_executable(
 target_link_libraries(SharkCardGame PRIVATE cbit2d::cbit2d)
 
 if(MINGW)
-    target_compile_options(SharkCardGame PRIVATE -Wa,-mbig-obj)
+    target_compile_options(SharkCardGame PRIVATE -Wa,-mbig-obj -USPDLOG_FWRITE_UNLOCKED)
 
     get_filename_component(_compiler_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
     set(_mingw_runtime_dlls
