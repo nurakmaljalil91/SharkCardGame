@@ -4,6 +4,10 @@
   "builtin-baseline": "61d43ee6f0cc440dc97983d36e0c85e80fe429d4",
   "dependencies": [
     {
+      "name": "yoga",
+      "version>=": "3.2.1"
+    },
+    {
       "name": "spdlog",
       "version>=": "1.17.0"
     },
